@@ -1,0 +1,1611 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#060c1c">
+<title>SJ88 RPG Idle 3D · Babylon.js · ยุทธภพสามมิติ</title>
+<style>
+:root{
+  --bg:#060c1c; --line:rgba(0,217,255,.25); --txt:#e8f4ff; --mute:#6c8cb8;
+  --gold:#ffd166; --acc:#00d9ff; --acc2:#ff6b35; --good:#00ff88; --bad:#ff3366;
+  --hp:#ff3366; --mp:#00d9ff; --exp:#ffd166;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;letter-spacing:.2px;user-select:none;}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;}
+
+/* ============ LAYOUT ============ */
+#app{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--bg);}
+#renderCanvas{position:absolute;inset:0;width:100%;height:100%;outline:none;touch-action:none;background:#000;display:block;}
+
+/* ============ TOP BAR ============ */
+#topBar{position:absolute;top:0;left:0;right:0;z-index:50;background:linear-gradient(180deg,rgba(6,12,28,.95),rgba(6,12,28,.7));backdrop-filter:blur(12px);padding:5px 8px 6px;border-bottom:1px solid var(--line);}
+.brandRow{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
+.brand{font-weight:900;font-size:12px;letter-spacing:1.5px;background:linear-gradient(135deg,var(--acc),var(--acc2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.brand::before{content:'';width:5px;height:11px;background:var(--acc);display:inline-block;margin-right:5px;vertical-align:middle;}
+.brandSub{font-size:8px;color:var(--mute);letter-spacing:1px;font-weight:600;margin-left:auto;}
+.barRow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px;}
+.bar{position:relative;height:8px;background:rgba(0,0,0,.5);clip-path:polygon(3px 0,100% 0,calc(100% - 3px) 100%,0 100%);overflow:hidden;border:1px solid rgba(0,217,255,.12);}
+.bar>span{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,var(--hp),#ff6080);transition:width .3s;box-shadow:0 0 4px rgba(255,51,102,.4);}
+.bar.mp>span{background:linear-gradient(90deg,var(--mp),#5fe6ff);box-shadow:0 0 4px rgba(0,217,255,.4);}
+.bar.exp>span{background:linear-gradient(90deg,var(--exp),#ffe488);box-shadow:0 0 4px rgba(255,209,102,.4);}
+.barLabel{position:absolute;inset:0;display:flex;align-items:center;justify-content:space-between;padding:0 4px;font-size:8px;color:#fff;text-shadow:0 1px 2px #000;font-weight:700;z-index:1;}
+
+/* ============ STATUS ROW ============ */
+#statusRow{position:absolute;top:48px;left:6px;right:6px;z-index:49;display:flex;gap:5px;align-items:center;}
+.chip{background:rgba(0,0,0,.6);border:1px solid var(--line);padding:2px 6px;font-size:9px;font-weight:700;clip-path:polygon(4px 0,100% 0,calc(100% - 4px) 100%,0 100%);}
+.chip b{color:var(--gold);}
+.chip.map{color:var(--acc);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.chip.gold{color:var(--gold);}
+.chip.class{background:rgba(0,217,255,.15);color:var(--acc);}
+
+/* ============ SKILL BAR ============ */
+#skillBar{position:absolute;left:50%;bottom:230px;transform:translateX(-50%);z-index:25;display:flex;gap:4px;}
+.skb{width:42px;height:42px;background:rgba(0,0,0,.7);border:1px solid var(--line);clip-path:polygon(0 0,calc(100% - 4px) 0,100% 4px,100% 100%,4px 100%,0 calc(100% - 4px));display:flex;align-items:center;justify-content:center;flex-direction:column;cursor:pointer;position:relative;color:#fff;font-size:18px;}
+.skb:active{background:rgba(0,217,255,.3);transform:scale(.95);}
+.skb .sklMp{position:absolute;bottom:-10px;left:0;right:0;font-size:7px;text-align:center;color:var(--mute);font-weight:700;}
+.skb .sklKey{position:absolute;top:1px;right:3px;font-size:7px;color:var(--acc);font-weight:900;}
+.skb .cd{position:absolute;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:var(--gold);}
+.skb.noMana{filter:grayscale(.6) brightness(.5);}
+
+/* ============ BOSS BAR ============ */
+#bossBar{position:absolute;left:50%;top:80px;transform:translateX(-50%);z-index:30;display:none;width:80%;max-width:400px;}
+#bossBar .wrap{background:rgba(0,0,0,.85);border:1px solid var(--hp);clip-path:polygon(0 0,calc(100% - 8px) 0,100% 8px,100% 100%,8px 100%,0 calc(100% - 8px));padding:4px 8px;}
+#bossBar .h{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:900;color:var(--hp);}
+#bossBar .h .nm{flex:1;}
+#bossBar .h .hp{color:#fff;}
+#bossBar .b{height:6px;background:#000;margin-top:3px;position:relative;overflow:hidden;}
+#bossBar .b>div{position:absolute;left:0;top:0;bottom:0;background:linear-gradient(90deg,var(--hp),#ff8830);width:100%;}
+
+/* ============ DAMAGE NUMBERS (overlay) ============ */
+#fxLayer{position:absolute;inset:0;pointer-events:none;z-index:20;}
+.fdmg{position:absolute;font-size:18px;font-weight:900;color:#fff;text-shadow:0 1px 3px #000,0 0 10px var(--hp);pointer-events:none;animation:fdAnim 1.2s ease-out forwards;letter-spacing:.5px;transform:translate(-50%,-50%);}
+.fdmg.crit{color:var(--gold);font-size:24px;text-shadow:0 0 12px var(--gold),0 0 24px rgba(255,209,102,.6);animation:fdCrit 1.4s ease-out;}
+.fdmg.gain{color:var(--good);}
+@keyframes fdAnim{0%{opacity:0;transform:translate(-50%,-50%) scale(.5);}15%{opacity:1;transform:translate(-50%,-50%) scale(1.2);}100%{opacity:0;transform:translate(-50%,-130%) scale(1);}}
+@keyframes fdCrit{0%{opacity:0;transform:translate(-50%,-50%) scale(.4) rotate(-10deg);}20%{opacity:1;transform:translate(-50%,-50%) scale(1.5) rotate(4deg);}100%{opacity:0;transform:translate(-50%,-150%) scale(1) rotate(0deg);}}
+
+/* ============ BOTTOM MENU ============ */
+#bottomMenu{position:absolute;bottom:0;left:0;right:0;z-index:30;background:linear-gradient(180deg,rgba(14,24,48,.85),rgba(6,12,28,.98));backdrop-filter:blur(16px);border-top:1px solid var(--line);padding:5px 6px 7px;}
+.menuGrid{display:grid;grid-template-columns:repeat(6,1fr);gap:3px;margin-bottom:4px;}
+.mbtn{background:linear-gradient(180deg,rgba(0,217,255,.05),rgba(14,24,48,.6));border:1px solid var(--line);clip-path:polygon(0 0,calc(100% - 4px) 0,100% 4px,100% 100%,4px 100%,0 calc(100% - 4px));padding:5px 3px;display:flex;flex-direction:column;align-items:center;gap:1px;font-size:9px;color:var(--txt);font-weight:700;letter-spacing:.2px;position:relative;}
+.mbtn:active{background:rgba(0,217,255,.25);}
+.mbtn .ic{font-size:16px;line-height:1;filter:drop-shadow(0 0 3px rgba(0,217,255,.3));}
+.mbtn .lb{font-size:8px;}
+.mbtn .badge{position:absolute;top:1px;right:2px;background:var(--hp);color:#fff;font-size:7px;padding:0 3px;font-weight:800;}
+.mbtn .new{position:absolute;top:-2px;right:-2px;background:var(--good);color:#000;font-size:6px;padding:0 3px;font-weight:900;}
+
+#actionRow{position:absolute;right:6px;bottom:235px;z-index:25;display:flex;flex-direction:column;gap:4px;}
+.ract{background:rgba(0,0,0,.7);border:1px solid var(--line);clip-path:polygon(5px 0,100% 0,calc(100% - 5px) 100%,0 100%);padding:6px 8px;font-size:9px;font-weight:800;letter-spacing:.3px;color:var(--txt);display:flex;align-items:center;gap:4px;min-width:75px;}
+.ract.on{background:linear-gradient(135deg,var(--acc),#0090b0);color:#000;}
+.ract .dot{width:5px;height:5px;background:rgba(255,255,255,.4);}
+.ract.on .dot{background:#000;}
+
+/* ============ TOAST ============ */
+#toastLayer{position:fixed;top:90px;left:0;right:0;z-index:300;display:flex;flex-direction:column;align-items:center;pointer-events:none;}
+.toast{background:var(--bg);border:1px solid var(--acc);clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);padding:6px 14px;font-size:11px;margin-bottom:4px;font-weight:700;box-shadow:0 0 12px rgba(0,217,255,.3);animation:toastA 2s ease-out;}
+@keyframes toastA{0%{opacity:0;transform:translateY(-8px);}15%{opacity:1;}85%{opacity:1;}100%{opacity:0;}}
+
+/* ============ LOADING ============ */
+#loading{position:fixed;inset:0;background:var(--bg);z-index:1000;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--acc);}
+#loading .brand{font-size:36px;font-weight:900;letter-spacing:4px;margin-bottom:20px;background:linear-gradient(135deg,var(--acc),var(--acc2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+#loading .ring{width:50px;height:50px;border:2px solid rgba(0,217,255,.15);border-top-color:var(--acc);border-right-color:var(--acc2);clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);animation:spin 1s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+#loading .tx{margin-top:14px;font-size:11px;letter-spacing:2px;font-weight:700;text-transform:uppercase;color:var(--mute);}
+#loading .p{margin-top:14px;font-size:10px;color:var(--gold);font-weight:700;}
+
+/* ============ MODALS ============ */
+.modalBg{position:fixed;inset:0;background:rgba(0,0,0,.75);backdrop-filter:blur(8px);z-index:100;display:none;align-items:flex-end;justify-content:center;animation:fadeIn .2s;}
+.modalBg.show{display:flex;}
+@keyframes fadeIn{from{opacity:0;}to{opacity:1;}}
+.modal{width:100%;max-width:520px;max-height:88vh;background:linear-gradient(180deg,var(--bg2,#0e1830),var(--bg));border-top:2px solid var(--acc);box-shadow:0 -10px 40px rgba(0,217,255,.15);clip-path:polygon(0 0,calc(100% - 24px) 0,100% 24px,100% 100%,0 100%);display:flex;flex-direction:column;animation:slideUp .3s cubic-bezier(.2,.7,.3,1);}
+@keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
+.mhead{padding:10px 14px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;background:linear-gradient(90deg,rgba(0,217,255,.05),transparent);}
+.mhead h2{font-size:14px;font-weight:900;letter-spacing:.5px;text-transform:uppercase;display:flex;align-items:center;gap:6px;}
+.mhead .x{width:26px;height:26px;background:rgba(255,51,102,.15);border:1px solid rgba(255,51,102,.3);color:var(--hp);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;}
+.mbody{flex:1;overflow-y:auto;padding:12px 12px 20px;}
+.mbody::-webkit-scrollbar{width:3px;}
+.mbody::-webkit-scrollbar-thumb{background:var(--acc);}
+.tabs{display:flex;gap:3px;background:rgba(0,0,0,.4);padding:3px;margin-bottom:10px;}
+.tab{flex:1;padding:6px 6px;font-size:10px;color:var(--mute);text-align:center;font-weight:700;letter-spacing:.3px;clip-path:polygon(5px 0,100% 0,calc(100% - 5px) 100%,0 100%);}
+.tab.on{background:linear-gradient(90deg,var(--acc),#0080a0);color:#000;}
+.section{background:rgba(0,0,0,.3);border:1px solid var(--line);clip-path:polygon(0 0,calc(100% - 12px) 0,100% 12px,100% 100%,12px 100%,0 calc(100% - 12px));padding:12px;margin-bottom:10px;}
+.section h3{font-size:11px;color:var(--acc);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px;font-weight:900;}
+.row{display:flex;align-items:center;justify-content:space-between;padding:5px 0;font-size:12px;border-bottom:1px dashed rgba(0,217,255,.08);}
+.row:last-child{border-bottom:none;}
+.row .l{color:var(--mute);}
+.row .v{font-weight:700;font-variant-numeric:tabular-nums;color:var(--txt);}
+.row .v.good{color:var(--good);}
+
+/* ============ LEVEL UP FLASH ============ */
+.levelFlash{position:fixed;inset:0;background:radial-gradient(circle,rgba(0,217,255,.4),transparent 60%),radial-gradient(circle,rgba(255,107,53,.3),transparent 70%);z-index:200;pointer-events:none;display:none;animation:lvlFlash 1.5s ease-out;}
+@keyframes lvlFlash{0%{opacity:0;transform:scale(.5);}30%{opacity:1;transform:scale(1.2);}100%{opacity:0;transform:scale(2);}}
+.lvlText{position:fixed;top:35%;left:50%;transform:translate(-50%,-50%);z-index:201;color:var(--acc);font-size:34px;font-weight:900;text-shadow:0 0 20px var(--acc),0 0 40px var(--acc2);pointer-events:none;display:none;animation:lvlTextAnim 1.8s ease-out;letter-spacing:3px;}
+@keyframes lvlTextAnim{0%{opacity:0;transform:translate(-50%,-50%) scale(.3) rotate(-10deg);}25%{opacity:1;transform:translate(-50%,-50%) scale(1.4) rotate(3deg);}100%{opacity:0;transform:translate(-50%,-80%) scale(1) rotate(0deg);}}
+</style>
+</head>
+<body>
+<div id="app">
+  <canvas id="renderCanvas"></canvas>
+  <div id="fxLayer"></div>
+  
+  <!-- TOP BAR -->
+  <div id="topBar">
+    <div class="brandRow">
+      <div class="brand">SJ88</div>
+      <div class="brandSub">RPG IDLE 3D · BABYLON.JS</div>
+    </div>
+    <div class="barRow">
+      <div class="bar hp"><span id="hpBar" style="width:100%"></span><div class="barLabel"><span>❤️ HP</span><span id="hpTxt">100/100</span></div></div>
+      <div class="bar mp"><span id="mpBar" style="width:100%"></span><div class="barLabel"><span>💧 MP</span><span id="mpTxt">50/50</span></div></div>
+      <div class="bar exp"><span id="expBar" style="width:0%"></span><div class="barLabel"><span>✨ EXP</span><span id="expTxt">0%</span></div></div>
+    </div>
+  </div>
+  
+  <!-- STATUS ROW -->
+  <div id="statusRow">
+    <div class="chip class"><span id="classIcon">⚔️</span> <span id="className">นักรบ</span></div>
+    <div class="chip">Lv.<b id="lvlTxt">1</b></div>
+    <div class="chip map" id="mapChip">🏘️ หมู่บ้าน</div>
+    <div class="chip gold">💰<b id="goldTxt">0</b></div>
+  </div>
+  
+  <!-- BOSS BAR -->
+  <div id="bossBar">
+    <div class="wrap">
+      <div class="h"><span id="bossIcon">👹</span><span class="nm" id="bossName">BOSS</span><span class="hp" id="bossHpTxt">100/100</span></div>
+      <div class="b"><div id="bossHpBar"></div></div>
+    </div>
+  </div>
+  
+  <!-- ACTION BUTTONS -->
+  <div id="actionRow">
+    <button class="ract on" id="autoBtn"><span class="dot"></span> AUTO</button>
+    <button class="ract" id="lockBtn"><span class="dot"></span> LOCK</button>
+  </div>
+  
+  <!-- SKILL BAR -->
+  <div id="skillBar">
+    <div class="skb" onclick="useSkill(0)"><span class="sklKey">1</span><span class="cd"></span></div>
+    <div class="skb" onclick="useSkill(1)"><span class="sklKey">2</span><span class="cd"></span></div>
+    <div class="skb" onclick="useSkill(2)"><span class="sklKey">3</span><span class="cd"></span></div>
+    <div class="skb" onclick="useSkill(3)"><span class="sklKey">4</span><span class="cd"></span></div>
+  </div>
+  
+  <!-- BOTTOM MENU -->
+  <div id="bottomMenu">
+    <div class="menuGrid">
+      <button class="mbtn" onclick="openModal('map')"><span class="ic">🗺️</span><span class="lb">แผนที่</span></button>
+      <button class="mbtn" onclick="openModal('class')"><span class="ic">⚜️</span><span class="lb">อาชีพ</span></button>
+      <button class="mbtn" onclick="openModal('skill')"><span class="ic">⚔️</span><span class="lb">สกิล</span></button>
+      <button class="mbtn" onclick="openModal('stat')"><span class="ic">📊</span><span class="lb">สถิติ</span></button>
+      <button class="mbtn" onclick="openModal('inv')"><span class="ic">🎒</span><span class="lb">ไอเทม</span></button>
+      <button class="mbtn" onclick="openModal('equip')"><span class="ic">🛡️</span><span class="lb">เกราะ</span></button>
+      <button class="mbtn" onclick="openModal('boss')"><span class="ic">👹</span><span class="lb">บอส</span></button>
+      <button class="mbtn" onclick="openModal('daily')"><span class="ic">🎁</span><span class="lb">รางวัล</span><span class="new">!</span></button>
+      <button class="mbtn" onclick="openModal('achv')"><span class="ic">🏆</span><span class="lb">สำเร็จ</span></button>
+      <button class="mbtn" onclick="openModal('help')"><span class="ic">❓</span><span class="lb">ช่วย</span></button>
+      <button class="mbtn" onclick="openModal('settings')"><span class="ic">⚙️</span><span class="lb">ตั้งค่า</span></button>
+      <button class="mbtn" onclick="logout()"><span class="ic">🚪</span><span class="lb">ออก</span></button>
+    </div>
+  </div>
+  
+  <!-- TOASTS -->
+  <div id="toastLayer"></div>
+  
+  <!-- LEVEL UP -->
+  <div class="levelFlash" id="lvlFlash"></div>
+  <div class="lvlText" id="lvlText">LEVEL UP!</div>
+</div>
+
+<div class="modalBg" id="modalBg">
+  <div class="modal" id="modalContainer"></div>
+</div>
+
+<div id="loading">
+  <div class="brand">SJ88</div>
+  <div class="ring"></div>
+  <div class="tx">กำลังโหลด Babylon.js 3D Engine...</div>
+  <div class="p" id="loadPct">0%</div>
+</div>
+
+<script src="https://cdn.babylonjs.com/babylon.js"></script>
+<script src="https://cdn.babylonjs.com/gui/babylon.gui.min.js"></script>
+<script>
+/* =============================================================
+   SJ88 RPG IDLE 3D - Babylon.js Edition
+   🎮 PBR + Lighting + Havok physics
+   ✨ Microsoft-backed, beautiful out of the box
+   🛠️ Playground-style editor included
+   ============================================================= */
+
+console.log('🎮 Initializing Babylon.js RPG...');
+
+const canvas = document.getElementById('renderCanvas');
+var engine = null;
+function initEngine(){
+  engine = new BABYLON.Engine(canvas, true, {
+    preserveDrawingBuffer: true,
+    stencil: true,
+    antialias: true,
+    adaptToDeviceRatio: true
+  });
+  engine.setHardwareScalingLevel(window.devicePixelRatio > 1 ? 1.5 : 1);
+}
+
+// Global state (declared as var to avoid TDZ issues)
+var scene, camera, sun, hemi, ground, shadowGen, envTex;
+var player = null;
+var monsters = [];
+var buildings = [];
+var trees = [];
+var portals = [];
+var activeBoss = null;
+var playerBuffs = {atkMul:1, defMul:1, atkEnd:0, defEnd:0};
+var joyDir = null;
+var autoAtkTick = 0;
+var lastFrame = Date.now();
+var keys = {};
+
+/* =============================================================
+   GAME STATE
+   ============================================================= */
+const C = { SAVE_KEY:'sj88_rpg_3d_v1' };
+const MAPS = {
+  town:     {id:'town',     name:'หมู่บ้านเริ่มต้น', icon:'🏘️', minLv:1,  maxLv:10,  groundColor:[0.3, 0.6, 0.25], sky:[0.4, 0.6, 0.9]},
+  forest:   {id:'forest',   name:'ป่าลึก',          icon:'🌲', minLv:10, maxLv:25,  groundColor:[0.2, 0.45, 0.2],  sky:[0.3, 0.6, 0.5]},
+  cave:     {id:'cave',     name:'ถ้ำคริสตัล',       icon:'🦇', minLv:25, maxLv:40,  groundColor:[0.15,0.18,0.3], sky:[0.1, 0.1, 0.2]},
+  volcano:  {id:'volcano',  name:'ภูเขาไฟ',          icon:'🌋', minLv:40, maxLv:55,  groundColor:[0.3, 0.18,0.1], sky:[0.4, 0.2, 0.1]},
+  sky:      {id:'sky',      name:'เกาะสวรรค์',         icon:'☁️', minLv:55, maxLv:75,  groundColor:[0.5, 0.7, 0.9],  sky:[0.5, 0.8, 1.0]},
+  darkcastle:{id:'darkcastle',name:'ปราสาทมืด',      icon:'🌑', minLv:75, maxLv:100, groundColor:[0.1, 0.1, 0.15], sky:[0.05,0.05,0.1]}
+};
+const MAP_ORDER = Object.keys(MAPS);
+
+const CLASSES = {
+  warrior: {id:'warrior', name:'นักรบ', icon:'⚔️', tier:1, next:'knight',  reqLv:1,  bonus:{hp:1.2,atk:1.1}, skills:['bash','whirlwind','rally','shield']},
+  mage:    {id:'mage',    name:'นักเวท',icon:'🔮', tier:1, next:'wizard',  reqLv:1,  bonus:{mp:1.3,atk:1.2}, skills:['fireball','blizzard','meteor','teleport']},
+  archer:  {id:'archer',  name:'นักธนู',icon:'🏹', tier:1, next:'ranger',  reqLv:1,  bonus:{atk:1.1,crit:1.2}, skills:['arrow','pierce','rain','trap']},
+  thief:   {id:'thief',   name:'นักฆ่า',icon:'🗡️', tier:1, next:'assassin',reqLv:1,  bonus:{agi:1.3,crit:1.3}, skills:['backstab','shadow','poison','mark']},
+  knight:  {id:'knight',  name:'อัศวิน',icon:'🛡️', tier:2, parent:'warrior', next:'paladin',  reqLv:30, bonus:{hp:1.4,def:1.3}, skills:['bash','whirlwind','rally','shield','heal']},
+  wizard:  {id:'wizard',  name:'จอมเวท',icon:'🧙', tier:2, parent:'mage',    next:'archmage', reqLv:30, bonus:{mp:1.5,atk:1.3}, skills:['fireball','blizzard','meteor','teleport','ultima']},
+  ranger:  {id:'ranger',  name:'เรนเจอร์',icon:'🎯',tier:2,parent:'archer', next:'sniper',   reqLv:30, bonus:{atk:1.3,crit:1.3}, skills:['arrow','pierce','rain','trap','snipe']},
+  assassin:{id:'assassin',name:'สายลับ',icon:'🥷',tier:2,parent:'thief',  next:'shadow',   reqLv:30, bonus:{agi:1.4,crit:1.4}, skills:['backstab','shadow','poison','mark','death']},
+  paladin: {id:'paladin', name:'ผู้พิทักษ์',icon:'✨',tier:3,parent:'knight',next:null,reqLv:60,bonus:{hp:1.6,def:1.5,holyDmg:1.3}, skills:['bash','whirlwind','rally','shield','heal','holy']},
+  archmage:{id:'archmage',name:'สถาปนิกมนตร์',icon:'🌟',tier:3,parent:'wizard',next:null,reqLv:60,bonus:{mp:1.8,atk:1.5}, skills:['fireball','blizzard','meteor','teleport','ultima','arcane']},
+  sniper:  {id:'sniper',  name:'นายพราน',icon:'🎯',tier:3,parent:'ranger',next:null,reqLv:60,bonus:{atk:1.5,crit:1.5}, skills:['arrow','pierce','rain','trap','snipe','huntershot']},
+  shadow:  {id:'shadow',  name:'เงา',icon:'🌑',tier:3,parent:'assassin',next:null,reqLv:60,bonus:{agi:1.5,crit:1.6}, skills:['backstab','shadow','poison','mark','death','void']}
+};
+
+const SKILL_DEFS = {
+  bash:        {name:'ตีทลวง',   icon:'👊', mp:8,  cd:2,  dmg:1.8, desc:'ตีแรง 180%',          fx:'bash', range:2.5, aoe:false},
+  whirlwind:   {name:'พายุหมัด',  icon:'🌀', mp:20, cd:8,  dmg:1.5, desc:'AOE 150%',            fx:'whirl', range:5,   aoe:true},
+  rally:       {name:'คำราม',    icon:'📯', mp:15, cd:18, buff:{atk:1.3, dur:10}, desc:'ATK +30% 10s',  fx:'rally'},
+  shield:      {name:'โล่ศักดิ์สิทธิ์', icon:'🛡️', mp:25, cd:20, buff:{def:2, dur:8}, desc:'DEF ×2 8s',     fx:'shield'},
+  heal:        {name:'ฟื้นฟู',   icon:'💚', mp:30, cd:25, heal:0.3, desc:'ฟื้น HP 30%',         fx:'heal'},
+  holy:        {name:'แสงศักดิ์สิทธิ์', icon:'☀️', mp:40, cd:30, dmg:2.5, aoe:true, range:8, desc:'AOE holy 250%', fx:'holy'},
+  fireball:    {name:'ลูกไฟ',   icon:'🔥', mp:10, cd:1.5,dmg:2.5, desc:'ลูกไฟ 250%',          fx:'fire',  range:15,  aoe:false, proj:true},
+  blizzard:    {name:'พายุหิมะ',  icon:'❄️', mp:25, cd:9,  dmg:1.8, desc:'AOE + slow',           fx:'ice',   range:8,   aoe:true},
+  meteor:      {name:'อุกกาบาต', icon:'☄️', mp:50, cd:22, dmg:4.0, desc:'AOE 400%',            fx:'meteor',range:15,  aoe:true},
+  teleport:    {name:'เทเลพอร์ต', icon:'✨', mp:20, cd:15, desc:'วาร์ปไปข้างหน้า',         fx:'teleport'},
+  ultima:      {name:'อัลติม่า', icon:'🌟', mp:100,cd:60, dmg:10, desc:'AOE 1000%',           fx:'ultima',range:25,  aoe:true},
+  arcane:      {name:'อาร์เคน', icon:'🌌', mp:60, cd:30, dmg:3.5, desc:'AOE arcane 350%',  fx:'arcane',range:20,  aoe:true},
+  arrow:       {name:'ฝนธนู',   icon:'🏹', mp:5,  cd:0.8,dmg:1.4, desc:'ยิง 3 ลูก',          fx:'arrow', range:20,  aoe:false, proj:true, multi:3},
+  pierce:      {name:'ยิงทะลุ', icon:'➹',  mp:15, cd:4,  dmg:2.8, desc:'ทะลุ 280%',           fx:'pierce',range:25,  aoe:false, proj:true},
+  rain:        {name:'ธนูน้ำตา', icon:'🌧️', mp:30, cd:14, dmg:1.6, desc:'ฝนธนู 160%',         fx:'rain',  range:15,  aoe:true},
+  trap:        {name:'กับดัก',  icon:'⛓️', mp:20, cd:18, desc:'สโลว์ 50% 5s',           fx:'trap'},
+  snipe:       {name:'สไนเปอร์', icon:'🎯', mp:40, cd:18, dmg:6.0, desc:'600% ระยะไกล',     fx:'snipe', range:50,  aoe:false},
+  huntershot:  {name:'+9 นายพราน', icon:'🏹', mp:50, cd:25, dmg:4.0, desc:'+300% ดาเมจ',  fx:'hunt', range:40,  aoe:false},
+  backstab:    {name:'แทงหลัง', icon:'🗡️', mp:8,  cd:2,  dmg:3.5, critBoost:30, desc:'คริต+30% 350%', fx:'back', range:2.5, aoe:false},
+  shadow:      {name:'เงาคู่',  icon:'🌑', mp:18, cd:10, dmg:2.0, dodge:0.5, dur:3, desc:'หลบ 50% 3s', fx:'shadow'},
+  poison:      {name:'พิษ',    icon:'☠️', mp:20, cd:8,  dmg:1.0, dotDmg:80, dotDur:6, desc:'ดาเมจ+พิษ', fx:'poison', range:3, aoe:false},
+  mark:        {name:'มาร์ค',  icon:'🎯', mp:15, cd:12, desc:'มาร์ค +30% 8s',     fx:'mark'},
+  death:       {name:'ความตาย', icon:'💀', mp:80, cd:45, dmg:8.0, ignoreDef:true, desc:'ข้าม DEF 800%', fx:'death', range:3, aoe:false},
+  void:        {name:'สุญญากาศ', icon:'🕳️', mp:100,cd:60, dmg:12, aoe:true, range:15, desc:'AOE void 1200%', fx:'void'}
+};
+
+const M_DATA = [
+  {id:'rabbit',name:'กระต่ายป่า',icon:'🐰',hp:30,atk:3,exp:8,gold:5,map:'town',color:[0.96,0.91,0.78]},
+  {id:'pig',name:'หมูป่า',icon:'🐗',hp:55,atk:5,exp:14,gold:9,map:'town',color:[0.78,0.58,0.46]},
+  {id:'snake',name:'งูพิษ',icon:'🐍',hp:80,atk:8,exp:22,gold:15,map:'forest',color:[0.48,0.85,0.36]},
+  {id:'wolf',name:'หมาป่า',icon:'🐺',hp:130,atk:12,exp:38,gold:28,map:'forest',color:[0.5,0.5,0.55]},
+  {id:'spider',name:'แมงมุม',icon:'🕷️',hp:180,atk:15,exp:55,gold:40,map:'forest',color:[0.16,0.16,0.18]},
+  {id:'bat',name:'ค้างคาว',icon:'🦇',hp:250,atk:20,exp:80,gold:60,map:'cave',color:[0.36,0.23,0.42]},
+  {id:'golem',name:'โกเลม',icon:'🗿',hp:450,atk:28,exp:140,gold:100,map:'cave',color:[0.5,0.5,0.5]},
+  {id:'crystal',name:'คริสตัล',icon:'💎',hp:380,atk:25,exp:120,gold:130,map:'cave',color:[0.37,0.9,1]},
+  {id:'lizard',name:'กิ้งก่าไฟ',icon:'🦎',hp:650,atk:38,exp:200,gold:180,map:'volcano',color:[0.91,0.29,0.23]},
+  {id:'demon',name:'ปีศาจไฟ',icon:'👹',hp:850,atk:50,exp:280,gold:250,map:'volcano',color:[0.64,0.25,0.25]},
+  {id:'harpy',name:'ฮาร์ปี',icon:'🦅',hp:1100,atk:65,exp:400,gold:380,map:'sky',color:[0.75,0.78,0.85]},
+  {id:'angel',name:'เทพธิดา',icon:'👼',hp:950,atk:60,exp:380,gold:420,map:'sky',color:[1,0.82,0.4]},
+  {id:'skeleton',name:'โครงกระดูก',icon:'💀',hp:1800,atk:95,exp:600,gold:550,map:'darkcastle',color:[0.75,0.78,0.85]},
+  {id:'vampire',name:'แวมไพร์',icon:'🧛',hp:2200,atk:110,exp:800,gold:750,map:'darkcastle',color:[0.54,0.1,0.23]},
+  {id:'demonlord',name:'จอมมาร',icon:'👿',hp:3500,atk:150,exp:1500,gold:1500,map:'darkcastle',color:[0.29,0.04,0.1]}
+];
+const BOSSES = {
+  town:     {name:'บอสหมูยักษ์',  icon:'🐗',hp:800,   atk:15, dmg:25, color:[0.66,0.31,0.19], size:1.5, exp:200,  gold:500},
+  forest:   {name:'ต้นไม้ยักษ์',  icon:'🌳',hp:3000,  atk:35, dmg:55, color:[0.16,0.35,0.16],size:2,   exp:800,  gold:2000},
+  cave:     {name:'ค้างคาวราชินี', icon:'🦇',hp:8000,  atk:60, dmg:90, color:[0.23,0.1,0.35], size:2,   exp:2500, gold:5000},
+  volcano:  {name:'มังกรไฟ',     icon:'🐉',hp:20000, atk:120,dmg:160,color:[0.77,0.25,0.13],size:2.5, exp:6000, gold:15000},
+  sky:      {name:'ฟีนิกซ์',      icon:'🔥',hp:50000, atk:200,dmg:250,color:[1,0.53,0.19],  size:2.5, exp:15000,gold:40000},
+  darkcastle:{name:'จอมมาร',      icon:'👿',hp:120000,atk:380,dmg:450,color:[0.23,0.04,0.1], size:3,   exp:40000,gold:100000}
+};
+
+const DAILY_REWARDS = [
+  {day:1, gold:100,  gems:1,  icon:'💰', name:'100💰 + 1💎'},
+  {day:2, gold:200,          icon:'💰', name:'200💰'},
+  {day:3, gems:3,            icon:'💎', name:'3💎'},
+  {day:4, gold:500,          icon:'💰', name:'500💰'},
+  {day:5, gems:5,            icon:'🎁', name:'5💎 + หีบหายาก'},
+  {day:6, gold:1000,         icon:'💰', name:'1,000💰'},
+  {day:7, gems:10,           icon:'🎁', name:'10💎 + หีบตำนาน'}
+];
+
+const ACHIEVEMENTS = [
+  {id:'first_kill',  name:'นักรบหน้าใหม่',  icon:'⚔️', desc:'ฆ่ามอนตัวแรก',         check:()=>G.totalKills>=1,    reward:{gold:50,  gems:1}},
+  {id:'kill_100',    name:'นักล่า',         icon:'🏹', desc:'ฆ่า 100 ตัว',           check:()=>G.totalKills>=100,  reward:{gold:1000, gems:5}},
+  {id:'kill_1000',   name:'นักฆ่า',        icon:'💀', desc:'ฆ่า 1,000 ตัว',         check:()=>G.totalKills>=1000, reward:{gold:5000, gems:20}},
+  {id:'lv_10',       name:'มือใหม่',        icon:'🌱', desc:'เลเวล 10',            check:()=>G.player.level>=10, reward:{gold:500}},
+  {id:'lv_30',       name:'ผู้เชี่ยวชาญ',   icon:'⭐', desc:'เลเวล 30',            check:()=>G.player.level>=30, reward:{gold:2000, gems:5}},
+  {id:'lv_60',       name:'ตำนาน',         icon:'🌟', desc:'เลเวล 60',            check:()=>G.player.level>=60, reward:{gold:5000, gems:10}},
+  {id:'map_2',       name:'นักผจญภัย',     icon:'🗺️', desc:'เข้าป่าลึก',          check:()=>G.bossKills>=1 || G.player.currentMap !== 'town', reward:{gold:500}},
+  {id:'map_6',       name:'พิชิตทุกแผนที่',  icon:'🌍', desc:'เข้าปราสาทมืด',        check:()=>G.player.currentMap==='darkcastle', reward:{gold:10000, gems:30}},
+  {id:'boss_1',      name:'นักล่าบอส',     icon:'👹', desc:'ฆ่าบอสตัวแรก',         check:()=>G.bossKills>=1, reward:{gold:5000, gems:10}},
+  {id:'boss_10',     name:'จอมบอส',       icon:'🐉', desc:'ฆ่าบอส 10 ตัว',        check:()=>G.bossKills>=10, reward:{gold:20000, gems:30}},
+  {id:'gold_10k',    name:'เศรษฐี',        icon:'💎', desc:'มีทอง 10,000',         check:()=>G.player.gold>=10000, reward:{gems:10}},
+  {id:'dmg_100k',    name:'เทพสังหาร',     icon:'💥', desc:'ดาเมจรวม 100,000',     check:()=>G.totalDmg>=100000, reward:{gems:30}}
+];
+
+const defaultState = () => ({
+  player: {
+    name:'ผู้กล้า', classId:'warrior', classTier:1,
+    level:1, exp:0, expMax:50, hp:200, hpMax:200, mp:100, mpMax:100,
+    str:10, agi:5, dex:8, int:5, vit:7, luk:5,
+    gold:0, gems:5, skillPoints:0,
+    pos:{x:0, z:0}, currentMap:'town',
+    inventory:[], achievements:[], achievementsClaimed:[],
+    skillCooldowns:{}, settings:{volume:true,lang:'th'},
+    daily:{lastLogin:null, streak:0, day:0, pending:false},
+    bossKills:0, bossProgress:0, lastBossMap:null, startTime:Date.now()
+  },
+  totalKills:0, totalGold:0, totalDmg:0
+});
+var G = defaultState();
+
+/* =============================================================
+   BABYLON SCENE SETUP
+   ============================================================= */
+function createScene(){
+  if(!engine) initEngine();
+  if(typeof BABYLON === 'undefined'){ console.error('BABYLON not loaded'); return; }
+  console.log('BABYLON version:', BABYLON.Engine.Version);
+  scene = new BABYLON.Scene(engine);
+  scene.clearColor = new BABYLON.Color4(0.05, 0.1, 0.18, 1);
+  scene.ambientColor = new BABYLON.Color3(0.3, 0.3, 0.35);
+  
+  // ArcRotateCamera — isometric-ish view
+  camera = new BABYLON.ArcRotateCamera('cam', -Math.PI/2, Math.PI/3.5, 22, BABYLON.Vector3.Zero(), scene);
+  camera.attachControl(canvas, true);
+  camera.lowerRadiusLimit = 10;
+  camera.upperRadiusLimit = 50;
+  camera.lowerBetaLimit = 0.3;
+  camera.upperBetaLimit = Math.PI/2.1;
+  camera.wheelDeltaPercentage = 0.01;
+  camera.panningSensibility = 50;
+  camera.inertia = 0.85;
+  
+  // PBR environment texture (for PBR materials)
+  envTex = BABYLON.CubeTexture.CreateFromPrefilteredData('https://assets.babylonjs.com/environments/environmentSpecular.env', scene);
+  scene.environmentTexture = envTex;
+  scene.environmentIntensity = 0.7;
+  
+  // Hemispheric light (sky/ground)
+  hemi = new BABYLON.HemisphericLight('hemi', new BABYLON.Vector3(0, 1, 0), scene);
+  hemi.intensity = 0.6;
+  hemi.diffuse = new BABYLON.Color3(0.9, 0.95, 1.0);
+  hemi.groundColor = new BABYLON.Color3(0.3, 0.35, 0.3);
+  
+  // Sun (directional) with shadows
+  sun = new BABYLON.DirectionalLight('sun', new BABYLON.Vector3(-0.5, -1, -0.5), scene);
+  sun.intensity = 1.2;
+  sun.diffuse = new BABYLON.Color3(1, 0.95, 0.8);
+  sun.specular = new BABYLON.Color3(0.5, 0.5, 0.4);
+  
+  // Shadow generator
+  shadowGen = new BABYLON.ShadowGenerator(1024, sun);
+  shadowGen.useBlurExponentialShadowMap = true;
+  shadowGen.blurKernel = 32;
+  shadowGen.darkness = 0.4;
+  
+  // Fog
+  scene.fogMode = BABYLON.Scene.FOGMODE_EXP2;
+  scene.fogDensity = 0.015;
+  scene.fogColor = new BABYLON.Color3(0.4, 0.6, 0.9);
+  
+  // Skybox (gradient)
+  createSkybox();
+  
+  // Ground
+  createGround();
+  
+  // Initial map
+  loadMap(G.player.currentMap || 'town');
+  
+  // Player
+  createPlayer();
+  
+  // Start render loop
+  engine.runRenderLoop(() => {
+    update();
+    scene.render();
+  });
+  
+  // Resize
+  window.addEventListener('resize', () => engine.resize());
+  
+  return scene;
+}
+
+function createSkybox(){
+  // simple gradient sky using sphere
+  const skybox = BABYLON.MeshBuilder.CreateSphere('sky', {diameter:200, sideOrientation:BABYLON.Mesh.BACKSIDE}, scene);
+  const mat = new BABYLON.StandardMaterial('skyMat', scene);
+  mat.backFaceCulling = false;
+  mat.disableLighting = true;
+  // Use dynamic texture for gradient
+  const tex = new BABYLON.DynamicTexture('skyTex', {width:512, height:512}, scene);
+  const ctx = tex.getContext();
+  const grad = ctx.createLinearGradient(0, 0, 0, 512);
+  grad.addColorStop(0, '#4a8bc7');
+  grad.addColorStop(0.5, '#88b8e8');
+  grad.addColorStop(1, '#c8d8e8');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 512, 512);
+  tex.update();
+  mat.emissiveTexture = tex;
+  mat.emissiveColor = new BABYLON.Color3(1, 1, 1);
+  skybox.material = mat;
+  skybox.infiniteDistance = true;
+}
+
+function createGround(){
+  if(ground) ground.dispose();
+  const map = MAPS[G.player.currentMap || 'town'];
+  ground = BABYLON.MeshBuilder.CreateGround('ground', {width:80, height:80, subdivisions:1}, scene);
+  const mat = new BABYLON.PBRMaterial('groundMat', scene);
+  mat.albedoColor = new BABYLON.Color3(...map.groundColor);
+  mat.metallic = 0;
+  mat.roughness = 0.85;
+  mat.environmentIntensity = 0.5;
+  ground.material = mat;
+  ground.receiveShadows = true;
+  scene.fogColor = new BABYLON.Color3(...map.sky);
+  scene.clearColor = new BABYLON.Color4(...map.sky, 1);
+  hemi.diffuse = new BABYLON.Color3(...map.sky);
+  hemi.groundColor = new BABYLON.Color3(...map.groundColor);
+}
+
+function loadMap(mapId){
+  G.player.currentMap = mapId;
+  const map = MAPS[mapId];
+  // dispose old monsters/buildings/trees/portals
+  monsters.forEach(m => m.mesh && m.mesh.dispose());
+  monsters = [];
+  buildings.forEach(b => b.mesh && b.mesh.dispose());
+  buildings = [];
+  trees.forEach(t => t.mesh && t.mesh.dispose());
+  trees = [];
+  portals.forEach(p => p.mesh && p.mesh.dispose());
+  portals = [];
+  activeBoss = null;
+  
+  createGround();
+  spawnDecorations(mapId);
+  spawnMonsters(mapId);
+  spawnPortals(mapId);
+  updateMapUI();
+}
+
+function spawnDecorations(mapId){
+  // trees
+  for(let i=0;i<25;i++){
+    const x = (Math.random()-0.5) * 70;
+    const z = (Math.random()-0.5) * 70;
+    if(Math.hypot(x, z) < 6) continue; // keep center clear
+    createTree(x, z, mapId);
+  }
+  // buildings (only in town)
+  if(mapId === 'town'){
+    createBuilding(-8, 0, 'house', 'บ้าน');
+    createBuilding(8, -2, 'shop', 'ร้านค้า');
+    createBuilding(6, 8, 'forge', 'ตีเหล็ก');
+    createBuilding(-6, 8, 'temple', 'ศาลา');
+    createBuilding(15, 15, 'boss', 'ท้องบอส', true);
+  }
+  // boss arena marker in every map
+  createBuilding(0, -22, 'arena', 'บอส ' + (BOSSES[mapId]?.name || ''), true);
+}
+
+function createTree(x, z, mapId){
+  const trunk = BABYLON.MeshBuilder.CreateCylinder('trunk_'+trees.length, {height:2, diameterTop:0.4, diameterBottom:0.6}, scene);
+  trunk.position = new BABYLON.Vector3(x, 1, z);
+  const trunkMat = new BABYLON.PBRMaterial('trunkMat_'+trees.length, scene);
+  trunkMat.albedoColor = new BABYLON.Color3(0.4, 0.25, 0.15);
+  trunkMat.roughness = 0.9;
+  trunk.material = trunkMat;
+  shadowGen.addShadowCaster(trunk);
+  
+  const top = BABYLON.MeshBuilder.CreateSphere('top_'+trees.length, {diameter:2.5, segments:6}, scene);
+  top.position = new BABYLON.Vector3(x, 3, z);
+  const topMat = new BABYLON.PBRMaterial('topMat_'+trees.length, scene);
+  const isDark = mapId === 'cave' || mapId === 'darkcastle';
+  const isFire = mapId === 'volcano';
+  if(isDark) topMat.albedoColor = new BABYLON.Color3(0.1, 0.15, 0.1);
+  else if(isFire) topMat.albedoColor = new BABYLON.Color3(0.2, 0.3, 0.1);
+  else topMat.albedoColor = new BABYLON.Color3(0.2, 0.5, 0.2);
+  topMat.roughness = 0.8;
+  top.material = topMat;
+  shadowGen.addShadowCaster(top);
+  trees.push({mesh: trunk, x, z});
+  trees.push({mesh: top, x, z});
+}
+
+function createBuilding(x, z, type, name, isSpecial=false){
+  // base
+  const w = isSpecial ? 4 : 2.5;
+  const h = isSpecial ? 4 : 2;
+  const d = isSpecial ? 4 : 2.5;
+  const wall = BABYLON.MeshBuilder.CreateBox('wall_'+buildings.length, {width:w, height:h, depth:d}, scene);
+  wall.position = new BABYLON.Vector3(x, h/2, z);
+  const mat = new BABYLON.PBRMaterial('bmat_'+buildings.length, scene);
+  if(type === 'house'){ mat.albedoColor = new BABYLON.Color3(0.8, 0.5, 0.3); }
+  else if(type === 'shop'){ mat.albedoColor = new BABYLON.Color3(0.3, 0.6, 0.8); }
+  else if(type === 'forge'){ mat.albedoColor = new BABYLON.Color3(0.7, 0.3, 0.2); }
+  else if(type === 'temple'){ mat.albedoColor = new BABYLON.Color3(0.9, 0.85, 0.5); }
+  else if(type === 'boss' || type === 'arena'){ mat.albedoColor = new BABYLON.Color3(0.6, 0.1, 0.1); mat.emissiveColor = new BABYLON.Color3(0.4, 0.05, 0.05); }
+  mat.roughness = 0.7;
+  wall.material = mat;
+  shadowGen.addShadowCaster(wall);
+  
+  // roof (cone)
+  if(!isSpecial){
+    const roof = BABYLON.MeshBuilder.CreateCylinder('roof_'+buildings.length, {height:1, diameterTop:0, diameterBottom:w*1.3}, scene);
+    roof.position = new BABYLON.Vector3(x, h + 0.5, z);
+    const roofMat = new BABYLON.PBRMaterial('roofMat_'+buildings.length, scene);
+    roofMat.albedoColor = new BABYLON.Color3(0.5, 0.2, 0.2);
+    roofMat.roughness = 0.8;
+    roof.material = roofMat;
+    shadowGen.addShadowCaster(roof);
+    buildings.push({mesh: roof, x, z, type, name});
+  }
+  buildings.push({mesh: wall, x, z, type, name, special:isSpecial});
+}
+
+function spawnMonsters(mapId){
+  const map = MAPS[mapId];
+  const eligible = M_DATA.filter(m => m.map === mapId);
+  if(eligible.length === 0) return;
+  for(let i=0;i<8;i++){
+    const angle = Math.random()*Math.PI*2;
+    const dist = 8 + Math.random()*25;
+    const x = Math.cos(angle)*dist;
+    const z = Math.sin(angle)*dist;
+    const data = eligible[Math.floor(Math.random()*eligible.length)];
+    createMonster(x, z, data);
+  }
+}
+
+function createMonster(x, z, data){
+  const size = 0.7 + (data.hp / 5000) * 0.6;
+  const mesh = BABYLON.MeshBuilder.CreateBox('mob', {width:size, height:size*1.5, depth:size}, scene);
+  mesh.position = new BABYLON.Vector3(x, size*0.75, z);
+  const mat = new BABYLON.PBRMaterial('mobMat', scene);
+  mat.albedoColor = new BABYLON.Color3(...data.color);
+  mat.metallic = 0.1;
+  mat.roughness = 0.6;
+  mesh.material = mat;
+  shadowGen.addShadowCaster(mesh);
+  
+  // emoji billboard (sprite)
+  const sprite = createEmojiSprite(data.icon, size * 1.4);
+  sprite.position = new BABYLON.Vector3(x, size*2.2, z);
+  sprite.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL;
+  
+  monsters.push({
+    mesh, sprite, ...data,
+    maxHp: data.hp * (1 + G.player.level * 0.1),
+    hp: data.hp * (1 + G.player.level * 0.1),
+    x, z, size, cd: 0
+  });
+}
+
+function createEmojiSprite(emoji, size){
+  const tex = new BABYLON.DynamicTexture('emojiTex', {width:128, height:128}, scene, false);
+  const ctx = tex.getContext();
+  ctx.clearRect(0, 0, 128, 128);
+  ctx.font = '90px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(emoji, 64, 64);
+  tex.update();
+  tex.hasAlpha = true;
+  const mat = new BABYLON.StandardMaterial('emojiMat', scene);
+  mat.diffuseTexture = tex;
+  mat.opacityTexture = tex;
+  mat.emissiveColor = new BABYLON.Color3(1, 1, 1);
+  mat.disableLighting = true;
+  mat.useAlphaFromDiffuseTexture = true;
+  mat.backFaceCulling = false;
+  const plane = BABYLON.MeshBuilder.CreatePlane('emoji', {size:size}, scene);
+  plane.material = mat;
+  return plane;
+}
+
+function spawnPortals(mapId){
+  const idx = MAP_ORDER.indexOf(mapId);
+  const prev = idx > 0 ? MAP_ORDER[idx-1] : MAP_ORDER[MAP_ORDER.length-1];
+  const next = idx < MAP_ORDER.length-1 ? MAP_ORDER[idx+1] : MAP_ORDER[0];
+  // west portal
+  const wp = createPortal(-25, 0, MAPS[prev], prev);
+  portals.push({mesh: wp, x:-25, z:0, targetMap: prev, targetX: 22, targetZ: 0});
+  // east portal
+  const ep = createPortal(25, 0, MAPS[next], next);
+  portals.push({mesh: ep, x:25, z:0, targetMap: next, targetX: -22, targetZ: 0});
+}
+
+function createPortal(x, z, target, targetId){
+  // glowing pillar + animated ring
+  const pillar = BABYLON.MeshBuilder.CreateCylinder('portal_'+portals.length, {height:4, diameter:1.5}, scene);
+  pillar.position = new BABYLON.Vector3(x, 2, z);
+  const mat = new BABYLON.PBRMaterial('portalMat', scene);
+  mat.albedoColor = new BABYLON.Color3(0, 0.85, 1);
+  mat.emissiveColor = new BABYLON.Color3(0, 0.85, 1);
+  mat.metallic = 0.5;
+  mat.roughness = 0.2;
+  pillar.material = mat;
+  shadowGen.addShadowCaster(pillar);
+  // animate ring
+  scene.onBeforeRenderObservable.add(() => {
+    pillar.rotation.y += 0.02;
+    const t = Date.now() / 500;
+    mat.emissiveColor = new BABYLON.Color3(0.3 + 0.5*Math.sin(t), 0.7 + 0.3*Math.sin(t+1), 1);
+  });
+  // target emoji
+  const sprite = createEmojiSprite(target.icon, 2);
+  sprite.position = new BABYLON.Vector3(x, 5, z);
+  sprite.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL;
+  return pillar;
+}
+
+function createPlayer(){
+  // body
+  const body = BABYLON.MeshBuilder.CreateCapsule('player', {radius:0.4, height:1.6, tessellation:8}, scene);
+  body.position = new BABYLON.Vector3(G.player.pos.x, 0.8, G.player.pos.z);
+  const bodyMat = new BABYLON.PBRMaterial('playerMat', scene);
+  bodyMat.albedoColor = new BABYLON.Color3(0.16, 0.45, 0.85);
+  bodyMat.metallic = 0.3;
+  bodyMat.roughness = 0.4;
+  body.material = bodyMat;
+  shadowGen.addShadowCaster(body);
+  // head
+  const head = BABYLON.MeshBuilder.CreateSphere('head', {diameter:0.7}, scene);
+  head.position = new BABYLON.Vector3(0, 1.2, 0);
+  head.parent = body;
+  const headMat = new BABYLON.PBRMaterial('headMat', scene);
+  headMat.albedoColor = new BABYLON.Color3(0.94, 0.84, 0.7);
+  headMat.roughness = 0.6;
+  head.material = headMat;
+  shadowGen.addShadowCaster(head);
+  // weapon (sword)
+  const sword = BABYLON.MeshBuilder.CreateBox('sword', {width:0.08, height:0.8, depth:0.08}, scene);
+  sword.position = new BABYLON.Vector3(0.4, 0.5, 0);
+  sword.parent = body;
+  const swordMat = new BABYLON.PBRMaterial('swordMat', scene);
+  swordMat.albedoColor = new BABYLON.Color3(0.85, 0.85, 0.95);
+  swordMat.metallic = 0.9;
+  swordMat.roughness = 0.1;
+  sword.material = swordMat;
+  
+  // emoji on top
+  const playerSprite = createEmojiSprite('🧙', 1.4);
+  playerSprite.position = new BABYLON.Vector3(0, 1.8, 0);
+  playerSprite.parent = body;
+  playerSprite.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL;
+  
+  player = body;
+  // place at saved pos or center
+  body.position = new BABYLON.Vector3(G.player.pos.x, 0.8, G.player.pos.z);
+}
+
+function updateMapUI(){
+  const map = MAPS[G.player.currentMap];
+  document.getElementById('mapChip').innerHTML = `${map.icon} ${map.name}`;
+  document.getElementById('classIcon').textContent = CLASSES[G.player.classId]?.icon || '⚔️';
+  document.getElementById('className').textContent = CLASSES[G.player.classId]?.name || 'ผู้กล้า';
+  document.getElementById('lvlTxt').textContent = G.player.level;
+  document.getElementById('goldTxt').textContent = formatNum(G.player.gold);
+}
+
+/* =============================================================
+   PLAYER + COMBAT LOGIC
+   ============================================================= */
+function update(){
+  const now = Date.now();
+  const dt = Math.min(100, now - lastFrame);
+  lastFrame = now;
+  // player movement
+  updatePlayer(dt);
+  // camera follow
+  if(player){
+    const target = player.position.add(new BABYLON.Vector3(0, 2, 0));
+    camera.target = BABYLON.Vector3.Lerp(camera.target, target, 0.1);
+  }
+  // monsters
+  updateMonsters(dt);
+  // boss
+  updateBoss(dt);
+  // portal check
+  checkPortalStep();
+  // regen
+  const p = G.player;
+  p.hp = Math.min(p.hpMax, p.hp + dt * 0.005);
+  p.mp = Math.min(p.mpMax, p.mp + dt * 0.002);
+  // auto attack
+  if(p.auto && autoAtkTick <= 0){
+    attack();
+    autoAtkTick = 200;
+  }
+  autoAtkTick -= dt;
+  // ui
+  updateUI();
+}
+
+function updatePlayer(dt){
+  const speed = (5 + G.player.agi * 0.1) * (dt/1000);
+  let dx = 0, dz = 0;
+  if(keys['w']||keys['ArrowUp']) dz -= 1;
+  if(keys['s']||keys['ArrowDown']) dz += 1;
+  if(keys['a']||keys['ArrowLeft']) dx -= 1;
+  if(keys['d']||keys['ArrowRight']) dx += 1;
+  if(joyDir){ dx = joyDir.x; dz = joyDir.y; }
+  const len = Math.hypot(dx, dz);
+  if(len > 0 && player){
+    dx /= len; dz /= len;
+    player.position.x += dx * speed;
+    player.position.z += dz * speed;
+    // clamp
+    player.position.x = Math.max(-38, Math.min(38, player.position.x));
+    player.position.z = Math.max(-38, Math.min(38, player.position.z));
+    // face direction
+    const targetAngle = Math.atan2(dx, dz);
+    player.rotation.y = BABYLON.Scalar.Lerp(player.rotation.y, targetAngle, 0.2);
+    G.player.pos.x = player.position.x;
+    G.player.pos.z = player.position.z;
+  }
+}
+
+function updateMonsters(dt){
+  for(const m of monsters){
+    if(m.hp <= 0) continue;
+    m.cd = Math.max(0, m.cd - dt);
+    // move toward player
+    const dp = Math.hypot(m.x - player.position.x, m.z - player.position.z);
+    if(dp > 2){
+      const a = Math.atan2(player.position.z - m.z, player.position.x - m.x);
+      const sp = 1.5 * (dt/1000);
+      m.x += Math.cos(a) * sp;
+      m.z += Math.sin(a) * sp;
+      m.mesh.position.x = m.x;
+      m.mesh.position.z = m.z;
+      m.sprite.position.x = m.x;
+      m.sprite.position.z = m.z;
+      m.mesh.rotation.y = a + Math.PI;
+    }
+    // attack player
+    if(dp < 2 && m.cd <= 0){
+      m.cd = 1500;
+      const dmg = Math.max(1, Math.floor(m.atk * (0.8 + Math.random()*0.4) - totalDEF()*0.3));
+      G.player.hp -= dmg;
+      spawnDmg(player.position.x, player.position.y + 2, player.position.z, dmg, false, false);
+      if(G.player.hp <= 0){
+        G.player.hp = G.player.hpMax;
+        G.player.pos = {x:0, z:0};
+        player.position.x = 0; player.position.z = 0;
+        showToast('💀 ตาย! กลับเมือง');
+      }
+    }
+  }
+}
+
+function attack(){
+  let target = null;
+  let minD = Infinity;
+  for(const m of monsters){
+    if(m.hp <= 0) continue;
+    const d = Math.hypot(m.x - player.position.x, m.z - player.position.z);
+    if(d < minD){ minD = d; target = m; }
+  }
+  if(!target || minD > 3) return;
+  // damage
+  const isCrit = Math.random() * 100 < critRate();
+  const dmg = Math.max(1, Math.floor(totalATK() * (0.85 + Math.random()*0.3) * (isCrit ? 1.8 : 1)));
+  target.hp -= dmg;
+  G.totalDmg += dmg;
+  spawnDmg(target.x, 2.5, target.z, dmg, isCrit, false);
+  // hit effect
+  target.mesh.scaling.y *= 0.7;
+  setTimeout(() => { if(target.mesh) target.mesh.scaling.y /= 0.7; }, 100);
+  // particles
+  spawnHitParticles(target.x, target.z, 8);
+  if(target.hp <= 0){
+    onKill(target);
+  }
+}
+
+function onKill(m){
+  G.totalKills++;
+  const expGain = Math.floor(m.exp * (1 + G.player.level*0.05));
+  const goldGain = Math.floor(m.gold * (0.8 + Math.random()*0.4));
+  G.player.exp += expGain;
+  G.player.gold += goldGain;
+  G.totalGold += goldGain;
+  spawnDmg(m.x, 3, m.z, '+'+expGain+' EXP', false, true);
+  spawnDmg(m.x, 3.5, m.z, '+'+goldGain+' 💰', false, true);
+  // dispose
+  setTimeout(() => {
+    if(m.mesh) m.mesh.dispose();
+    if(m.sprite) m.sprite.dispose();
+    monsters = monsters.filter(x => x !== m);
+  }, 500);
+  // boss check
+  if(m.isBoss){
+    G.bossKills = (G.bossKills||0) + 1;
+    G.player.gold += m.gold * 3;
+    G.player.gems += 5;
+    showToast(`👑 ฆ่าบอส! ${m.name}`);
+    activeBoss = null;
+    return;
+  }
+  // normal: respawn
+  setTimeout(() => spawnMonsters(G.player.currentMap), 5000);
+  // level up
+  checkLevelUp();
+  checkAchievements();
+}
+
+function trySpawnBoss(){
+  if(activeBoss) return;
+  const mapId = G.player.currentMap;
+  const bdef = BOSSES[mapId];
+  if(!bdef || G.player.level < MAPS[mapId].minLv) return;
+  if(G.lastBossMap === mapId && Date.now() - (G.lastBossTime||0) < 60000) return;
+  // dispose current boss arena marker
+  // spawn boss
+  const a = Math.random() * Math.PI * 2;
+  const dist = 12;
+  const x = player.position.x + Math.cos(a) * dist;
+  const z = player.position.z + Math.sin(a) * dist;
+  activeBoss = {
+    ...bdef,
+    mesh: null, sprite: null,
+    maxHp: bdef.hp * (1 + G.player.level * 0.15),
+    hp: bdef.hp * (1 + G.player.level * 0.15),
+    x, z, isBoss: true, cd: 0
+  };
+  // create boss mesh
+  const size = bdef.size;
+  const mesh = BABYLON.MeshBuilder.CreateBox('boss', {width:size, height:size*1.5, depth:size}, scene);
+  mesh.position = new BABYLON.Vector3(x, size*0.75, z);
+  const mat = new BABYLON.PBRMaterial('bossMat', scene);
+  mat.albedoColor = new BABYLON.Color3(...bdef.color);
+  mat.emissiveColor = new BABYLON.Color3(...bdef.color).scale(0.3);
+  mat.metallic = 0.4;
+  mat.roughness = 0.3;
+  mesh.material = mat;
+  shadowGen.addShadowCaster(mesh);
+  activeBoss.mesh = mesh;
+  const sprite = createEmojiSprite(bdef.icon, size * 1.8);
+  sprite.position = new BABYLON.Vector3(x, size*2.5, z);
+  sprite.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL;
+  activeBoss.sprite = sprite;
+  monsters.push(activeBoss);
+  G.lastBossMap = mapId;
+  G.lastBossTime = Date.now();
+  showToast(`👹 BOSS! ${bdef.name}`);
+}
+
+function updateBoss(dt){
+  if(!activeBoss) {
+    // chance to spawn after 25 kills in this map
+    if(G.bossProgress >= 25 && Math.random() < 0.002){
+      G.bossProgress = 0;
+      trySpawnBoss();
+    }
+    return;
+  }
+  const b = activeBoss;
+  b.cd = Math.max(0, b.cd - dt);
+  // move
+  const dp = Math.hypot(b.x - player.position.x, b.z - player.position.z);
+  if(dp > 4){
+    const a = Math.atan2(player.position.z - b.z, player.position.x - b.x);
+    const sp = 2.5 * (dt/1000);
+    b.x += Math.cos(a) * sp;
+    b.z += Math.sin(a) * sp;
+    b.mesh.position.x = b.x;
+    b.mesh.position.z = b.z;
+    b.sprite.position.x = b.x;
+    b.sprite.position.z = b.z;
+    b.mesh.rotation.y = a + Math.PI;
+  }
+  // attack
+  if(dp < 3 && b.cd <= 0){
+    b.cd = 1200;
+    const dmg = Math.max(1, Math.floor(b.dmg * (0.8 + Math.random()*0.4) - totalDEF()*0.3));
+    G.player.hp -= dmg;
+    spawnDmg(player.position.x, player.position.y + 2, player.position.z, dmg, false, false);
+  }
+  // boss bar
+  const bar = document.getElementById('bossBar');
+  if(b.hp > 0){
+    bar.style.display = 'block';
+    document.getElementById('bossIcon').textContent = b.icon;
+    document.getElementById('bossName').textContent = b.name;
+    document.getElementById('bossHpTxt').textContent = `${Math.floor(b.hp)}/${Math.floor(b.maxHp)}`;
+    document.getElementById('bossHpBar').style.width = (b.hp/b.maxHp*100)+'%';
+  }else{
+    bar.style.display = 'none';
+  }
+}
+
+function checkPortalStep(){
+  for(const p of portals){
+    if(Math.hypot(p.x - player.position.x, p.z - player.position.z) < 1.5){
+      if(confirm(`วาร์ปไปยัง ${MAPS[p.targetMap].icon} ${MAPS[p.targetMap].name}?`)){
+        loadMap(p.targetMap);
+        player.position.x = p.targetX;
+        player.position.z = p.targetZ;
+        G.player.pos = {x: p.targetX, z: p.targetZ};
+        showToast(`🌀 วาร์ปไปยัง ${MAPS[p.targetMap].name}`);
+      }
+    }
+  }
+}
+
+function checkLevelUp(){
+  while(G.player.exp >= G.player.expMax){
+    G.player.exp -= G.player.expMax;
+    G.player.level++;
+    G.player.expMax = Math.floor(G.player.expMax * 1.4);
+    G.player.skillPoints += 5;
+    G.player.hpMax += 30;
+    G.player.mpMax += 10;
+    G.player.hp = G.player.hpMax;
+    G.player.mp = G.player.mpMax;
+    showLevelUp();
+    checkAchievements();
+  }
+  // boss progress
+  G.bossProgress = (G.bossProgress||0) + 1;
+}
+
+/* =============================================================
+   COMBAT MATH
+   ============================================================= */
+function totalATK(){
+  const p = G.player;
+  let atk = p.str + (p.level-1) * 3;
+  // class bonus
+  const cls = CLASSES[p.classId];
+  if(cls && cls.bonus.atk) atk *= cls.bonus.atk;
+  if(playerBuffs.atkMul > 1) atk *= playerBuffs.atkMul;
+  return Math.floor(atk);
+}
+function totalDEF(){
+  return Math.floor((G.player.vit + G.player.level * 0.5) * (playerBuffs.defMul||1)) + 5;
+}
+function critRate(){
+  return Math.min(80, 5 + G.player.dex * 0.4 + G.player.luk * 0.6);
+}
+function getPlayerSkills(){
+  return (CLASSES[G.player.classId]?.skills || ['bash','whirlwind','rally','shield']).map(id => SKILL_DEFS[id]).filter(Boolean);
+}
+
+function useSkill(idx){
+  const skills = getPlayerSkills();
+  const sk = skills[idx];
+  if(!sk) return;
+  const p = G.player;
+  if(p.skillCooldowns[sk.id] && p.skillCooldowns[sk.id] > Date.now()){
+    showToast(`⏳ ${sk.name} รออีก ${((p.skillCooldowns[sk.id] - Date.now())/1000).toFixed(1)}s`);
+    return;
+  }
+  if(p.mp < (sk.mp||0)){ showToast(`💧 MP ไม่พอ!`); return; }
+  p.mp -= (sk.mp||0);
+  p.skillCooldowns[sk.id] = Date.now() + (sk.cd||1)*1000;
+  if(sk.buff){
+    if(sk.buff.atk){ playerBuffs.atkMul *= sk.buff.atk; playerBuffs.atkEnd = Math.max(playerBuffs.atkEnd, Date.now() + sk.buff.dur*1000); }
+    if(sk.buff.def){ playerBuffs.defMul *= sk.buff.def; playerBuffs.defEnd = Math.max(playerBuffs.defEnd, Date.now() + sk.buff.dur*1000); }
+  }
+  if(sk.heal){
+    p.hp = Math.min(p.hpMax, p.hp + p.hpMax * sk.heal);
+    showToast(`💚 +${Math.floor(p.hpMax*sk.heal)} HP`);
+  }
+  if(sk.dmg){
+    let totalDmg = 0;
+    const range = sk.range || 3;
+    const targets = sk.aoe ? monsters : monsters.filter(m => Math.hypot(m.x - player.position.x, m.z - player.position.z) < range).slice(0, sk.multi||1);
+    if(targets.length === 0 && !sk.aoe) targets.push(monsters[0]);
+    for(const m of targets){
+      if(!m || m.hp <= 0) continue;
+      const isCrit = Math.random()*100 < critRate() + (sk.critBoost||0);
+      let dmg = Math.max(1, Math.floor(totalATK() * sk.dmg * (isCrit?1.8:1) * (0.8 + Math.random()*0.4)));
+      if(sk.ignoreDef) dmg = Math.floor(dmg * 1.5);
+      m.hp -= dmg;
+      G.totalDmg += dmg;
+      totalDmg += dmg;
+      spawnDmg(m.x, 2.5, m.z, dmg, isCrit, false);
+      spawnHitParticles(m.x, m.z, 12);
+      if(m.hp <= 0) onKill(m);
+    }
+    if(totalDmg > 0) showToast(`⚡ ${sk.name}! ${totalDmg} dmg`);
+  }
+  spawnHitParticles(player.position.x, player.position.z, 12);
+  checkAchievements();
+}
+
+function spawnHitParticles(x, z, count){
+  for(let i=0;i<count;i++){
+    const sphere = BABYLON.MeshBuilder.CreateSphere('p', {diameter:0.1}, scene);
+    sphere.position = new BABYLON.Vector3(x + (Math.random()-0.5)*0.5, 1 + Math.random()*0.5, z + (Math.random()-0.5)*0.5);
+    const mat = new BABYLON.StandardMaterial('pm', scene);
+    mat.emissiveColor = new BABYLON.Color3(1, 0.8, 0.3);
+    sphere.material = mat;
+    const vx = (Math.random()-0.5)*3, vy = 1+Math.random()*2, vz = (Math.random()-0.5)*3;
+    let life = 600;
+    const startTime = Date.now();
+    const obs = scene.onBeforeRenderObservable.add(() => {
+      const t = (Date.now() - startTime) / 1000;
+      sphere.position.x += vx * 0.016;
+      sphere.position.y += vy * 0.016;
+      sphere.position.z += vz * 0.016;
+      vy -= 5 * 0.016;
+      sphere.scaling.scaleInPlace(0.97);
+      if(Date.now() - startTime > 600){
+        sphere.dispose();
+        scene.onBeforeRenderObservable.remove(obs);
+      }
+    });
+  }
+}
+
+/* =============================================================
+   UI
+   ============================================================= */
+function updateUI(){
+  const p = G.player;
+  document.getElementById('hpTxt').textContent = `${Math.floor(p.hp)}/${p.hpMax}`;
+  document.getElementById('hpBar').style.width = (p.hp/p.hpMax*100)+'%';
+  document.getElementById('mpTxt').textContent = `${Math.floor(p.mp)}/${p.mpMax}`;
+  document.getElementById('mpBar').style.width = (p.mp/p.mpMax*100)+'%';
+  document.getElementById('expTxt').textContent = `${Math.floor(p.exp/p.expMax*100)}%`;
+  document.getElementById('expBar').style.width = (p.exp/p.expMax*100)+'%';
+  document.getElementById('goldTxt').textContent = formatNum(p.gold);
+  // update skill bar
+  const skills = getPlayerSkills();
+  document.querySelectorAll('.skb').forEach((el, i) => {
+    const sk = skills[i];
+    if(!sk){ el.style.display = 'none'; return; }
+    el.style.display = 'flex';
+    const cd = (p.skillCooldowns[sk.id]||0) - Date.now();
+    const onCd = cd > 0;
+    const noMp = p.mp < (sk.mp||0);
+    el.querySelector('.sklMp').textContent = sk.mp+'💧';
+    const cdEl = el.querySelector('.cd');
+    if(onCd){
+      cdEl.style.display = 'flex';
+      cdEl.textContent = Math.ceil(cd/1000)+'s';
+    }else{
+      cdEl.style.display = 'none';
+    }
+    el.classList.toggle('noMana', noMp && !onCd);
+  });
+}
+
+function spawnDmg(x, y, z, text, crit, good){
+  const el = document.createElement('div');
+  el.className = 'fdmg' + (crit?' crit':'') + (good?' gain':'');
+  el.textContent = text;
+  // project 3D world to 2D screen
+  const screen = BABYLON.Vector3.Project(
+    new BABYLON.Vector3(x, y, z),
+    BABYLON.Matrix.Identity(),
+    scene.getTransformMatrix(),
+    camera.viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight())
+  );
+  el.style.left = (screen.x / (window.devicePixelRatio || 1)) + 'px';
+  el.style.top = (screen.y / (window.devicePixelRatio || 1)) + 'px';
+  document.getElementById('fxLayer').appendChild(el);
+  setTimeout(() => el.remove(), 1500);
+}
+
+function formatNum(n){
+  if(n >= 1e6) return (n/1e6).toFixed(1)+'M';
+  if(n >= 1e3) return (n/1e3).toFixed(1)+'K';
+  return n.toString();
+}
+
+function showToast(msg){
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.getElementById('toastLayer').appendChild(el);
+  setTimeout(() => el.remove(), 2200);
+}
+
+function showLevelUp(){
+  document.getElementById('lvlFlash').style.display = 'block';
+  document.getElementById('lvlText').style.display = 'block';
+  setTimeout(() => {
+    document.getElementById('lvlFlash').style.display = 'none';
+    document.getElementById('lvlText').style.display = 'none';
+  }, 1900);
+}
+
+/* =============================================================
+   ACHIEVEMENT / DAILY
+   ============================================================= */
+function checkAchievements(){
+  if(!G.player.achievements) G.player.achievements = [];
+  for(const a of ACHIEVEMENTS){
+    if(G.player.achievements.includes(a.id)) continue;
+    if(a.check()){ G.player.achievements.push(a.id); showToast(`🏆 ${a.name}`); }
+  }
+}
+function checkDailyLogin(){
+  if(!G.player.daily) G.player.daily = {lastLogin:null,streak:0,day:0};
+  const today = new Date().toDateString();
+  if(G.player.daily.lastLogin === today) return;
+  const last = G.player.daily.lastLogin ? new Date(G.player.daily.lastLogin) : null;
+  let streak = 1;
+  if(last){
+    const diff = (Date.now() - last.getTime())/(1000*60*60*24);
+    if(diff < 1.5) streak = G.player.daily.streak + 1;
+    else streak = 1;
+  }
+  if(streak > 7) streak = 1;
+  G.player.daily.streak = streak;
+  G.player.daily.day = streak;
+  G.player.daily.lastLogin = today;
+  G.player.daily.pending = true;
+  setTimeout(() => { if(G.player.daily.pending) openModal('daily'); G.player.daily.pending = false; }, 1500);
+}
+function claimDaily(){
+  if(!G.player.daily) return;
+  const r = DAILY_REWARDS[G.player.daily.day - 1];
+  if(!r) return;
+  if(r.gold) G.player.gold += r.gold;
+  if(r.gems) G.player.gems += r.gems;
+  G.player.daily.pending = false;
+  showToast(`🎁 +${r.name}`);
+  closeModal();
+}
+
+/* =============================================================
+   MODALS
+   ============================================================= */
+function openModal(name){
+  const bg = document.getElementById('modalBg');
+  const c = document.getElementById('modalContainer');
+  bg.classList.add('show');
+  c.innerHTML = modalHTML(name);
+}
+function closeModal(){ document.getElementById('modalBg').classList.remove('show'); }
+document.getElementById('modalBg').addEventListener('click', e => { if(e.target.id==='modalBg') closeModal(); });
+
+function modalHTML(name){
+  switch(name){
+    case 'map': return mapModal();
+    case 'class': return classModal();
+    case 'skill': return skillModal();
+    case 'stat': return statModal();
+    case 'inv': return invModal();
+    case 'equip': return equipModal();
+    case 'boss': return bossModal();
+    case 'daily': return dailyModal();
+    case 'achv': return achvModal();
+    case 'help': return helpModal();
+    case 'settings': return settingsModal();
+  }
+  return '<div class="mhead"><h2>ไม่พบ</h2><button class="x" onclick="closeModal()">✕</button></div><div class="mbody">Coming soon</div>';
+}
+function mhead(t,i){ return `<div class="mhead"><h2><span class="ic">${i}</span> ${t}</h2><button class="x" onclick="closeModal()">✕</button></div>`; }
+
+function mapModal(){
+  return `${mhead('แผนที่','🗺️')}<div class="mbody">${MAP_ORDER.map(mid=>{
+    const m = MAPS[mid];
+    const isCur = G.player.currentMap === mid;
+    return `<div class="row" style="padding:8px;background:rgba(0,0,0,.3);margin-bottom:6px;border-left:3px solid ${isCur?'var(--acc)':'var(--line)'};">
+      <span style="font-size:22px;">${m.icon}</span>
+      <span class="l" style="flex:1;"><div style="font-weight:900;">${m.name}</div><div style="font-size:9px;color:var(--mute);">Lv.${m.minLv}-${m.maxLv}</div></span>
+      <button class="buyBtn" style="font-size:9px;padding:5px 10px;${isCur?'opacity:.4;':''}" onclick="warpTo('${mid}')">${isCur?'อยู่':'ไป'}</button>
+    </div>`;
+  }).join('')}</div>`;
+}
+window.warpTo = function(mid){
+  if(G.player.currentMap === mid) return;
+  loadMap(mid);
+  player.position.x = 0;
+  player.position.z = 0;
+  G.player.pos = {x:0, z:0};
+  showToast(`🌀 วาร์ปไปยัง ${MAPS[mid].name}`);
+  closeModal();
+};
+
+function classModal(){
+  const cur = CLASSES[G.player.classId];
+  const next = cur.next ? CLASSES[cur.next] : null;
+  const canPromote = next && G.player.level >= next.reqLv;
+  return `${mhead('อาชีพ','⚜️')}<div class="mbody">
+    <div class="section" style="text-align:center;">
+      <div style="font-size:48px;">${cur.icon}</div>
+      <div style="font-size:18px;font-weight:900;margin-top:4px;">${cur.name}</div>
+      <div style="font-size:10px;color:var(--mute);">Tier ${cur.tier} · Lv.${G.player.level}</div>
+      ${next ? `<div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--line);">
+        <div style="font-size:11px;color:var(--mute);">เลื่อนขั้น (Lv.${next.reqLv}):</div>
+        <div style="font-size:24px;margin:4px;">${next.icon}</div>
+        <div style="font-size:13px;font-weight:900;color:var(--gold);">${next.name}</div>
+        <button class="buyBtn" style="margin-top:8px;${canPromote?'':'opacity:.4;'}" onclick="promoteClass()" ${canPromote?'':'disabled'}>${canPromote?'▸ เลื่อนขั้น':'ต้องเลเวล '+next.reqLv}</button>
+      </div>` : '<div style="margin-top:8px;color:var(--gold);font-weight:900;">✨ Tier สูงสุด</div>'}
+    </div>
+    <div class="section">
+      <h3>📊 โบนัส</h3>
+      ${Object.entries(cur.bonus).map(([k,v])=>`<div class="row"><span class="l">${k.toUpperCase()}</span><span class="v good">×${v}</span></div>`).join('')}
+    </div>
+    <div class="section">
+      <h3>🌳 ต้นไม้อาชีพ</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:4px;font-size:9px;">
+        ${Object.values(CLASSES).filter(c=>c.tier===1).map(c=>`
+          <div style="padding:4px;background:${G.player.classId===c.id?'rgba(0,217,255,.2)':'rgba(0,0,0,.3)'};border:1px solid ${G.player.classId===c.id?'var(--acc)':'var(--line)'};text-align:center;">${c.icon}<br>${c.name}</div>
+        `).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+window.promoteClass = function(){
+  const cur = CLASSES[G.player.classId];
+  if(!cur || !cur.next) return;
+  const next = CLASSES[cur.next];
+  if(G.player.level < next.reqLv){ showToast(`⚠️ ต้องเลเวล ${next.reqLv}`); return; }
+  if(!confirm(`เลื่อนขั้นเป็น ${next.icon} ${next.name}?`)) return;
+  G.player.classId = next.id;
+  G.player.classTier = next.tier;
+  G.player.hpMax += 50;
+  G.player.mpMax += 20;
+  G.player.hp = G.player.hpMax;
+  G.player.mp = G.player.mpMax;
+  showToast(`✨ เลื่อนขั้นเป็น ${next.name}!`);
+  showLevelUp();
+  openModal('class');
+};
+
+function skillModal(){
+  const skills = getPlayerSkills();
+  const cls = CLASSES[G.player.classId];
+  return `${mhead('สกิลอาชีพ','⚔️')}<div class="mbody">
+    <div class="section" style="text-align:center;">
+      <div style="font-size:11px;color:var(--mute);">คลาสปัจจุบัน</div>
+      <div style="font-size:24px;">${cls.icon} ${cls.name}</div>
+    </div>
+    ${skills.map((s,i)=>`
+      <div class="skillCard" style="background:rgba(0,0,0,.3);border:1px solid var(--line);padding:10px;margin-bottom:6px;display:flex;align-items:center;gap:10px;">
+        <div style="width:40px;height:40px;background:linear-gradient(135deg,var(--acc2),#c84515);display:flex;align-items:center;justify-content:center;font-size:20px;">${s.icon}</div>
+        <div style="flex:1;">
+          <div style="font-size:12px;font-weight:900;">${s.name}</div>
+          <div style="font-size:9px;color:var(--mute);">${s.desc}</div>
+          <div style="font-size:9px;color:var(--acc);">💧${s.mp||0} · ⏱️${s.cd||1}s</div>
+        </div>
+        <button class="buyBtn" style="font-size:10px;padding:5px 10px;" onclick="useSkill(${i})">ใช้ (${i+1})</button>
+      </div>
+    `).join('')}
+  </div>`;
+}
+
+function statModal(){
+  const p = G.player;
+  return `${mhead('สถิติ','📊')}<div class="mbody">
+    <div class="section">
+      <h3>📊 สถานะ</h3>
+      <div class="row"><span class="l">เลเวล</span><span class="v">${p.level}</span></div>
+      <div class="row"><span class="l">EXP</span><span class="v">${p.exp}/${p.expMax}</span></div>
+      <div class="row"><span class="l">HP</span><span class="v">${Math.floor(p.hp)}/${p.hpMax}</span></div>
+      <div class="row"><span class="l">MP</span><span class="v">${Math.floor(p.mp)}/${p.mpMax}</span></div>
+      <div class="row"><span class="l">ATK</span><span class="v good">${totalATK()}</span></div>
+      <div class="row"><span class="l">DEF</span><span class="v good">${totalDEF()}</span></div>
+      <div class="row"><span class="l">Crit</span><span class="v">${critRate().toFixed(1)}%</span></div>
+    </div>
+    <div class="section">
+      <h3>📈 สถิติรวม</h3>
+      <div class="row"><span class="l">ฆ่ามอน</span><span class="v">${G.totalKills}</span></div>
+      <div class="row"><span class="l">ดาเมจรวม</span><span class="v">${formatNum(G.totalDmg)}</span></div>
+      <div class="row"><span class="l">ฆ่าบอส</span><span class="v">${G.player.bossKills||0}</span></div>
+      <div class="row"><span class="l">เวลาเล่น</span><span class="v">${formatTime(Date.now() - p.startTime)}</span></div>
+    </div>
+  </div>`;
+}
+
+function invModal(){
+  return `${mhead('ไอเทม','🎒')}<div class="mbody">
+    <div class="section">
+      <h3>🎒 กระเป๋า (${G.player.inventory.length}/40)</h3>
+      ${G.player.inventory.length === 0 ? '<div style="text-align:center;color:var(--mute);padding:20px;">ว่างเปล่า</div>' :
+        `<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;">
+          ${G.player.inventory.map((id,i)=>`<div style="aspect-ratio:1;background:rgba(0,0,0,.3);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:20px;">${id}</div>`).join('')}
+        </div>`}
+    </div>
+  </div>`;
+}
+
+function equipModal(){
+  return `${mhead('ชุดเกราะ','🛡️')}<div class="mbody">
+    <div class="section">
+      <h3>🎒 อุปกรณ์</h3>
+      <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;">
+        ${['หมวก','เสื้อ','กางเกง','รองเท้า','อาวุธ'].map(s=>`<div style="aspect-ratio:1;background:rgba(0,0,0,.3);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;flex-direction:column;font-size:18px;">⚔️<div style="font-size:8px;color:var(--mute);">${s}</div></div>`).join('')}
+      </div>
+    </div>
+    <div class="section">
+      <h3>📦 ไอเทมในกระเป๋า</h3>
+      <p style="color:var(--mute);font-size:11px;">ออกแบบอุปกรณ์ 10 ช่อง พร้อม stat bonus (ดูเวอร์ชัน 2D ได้ที่ sj88-rpg-idle-th)</p>
+    </div>
+  </div>`;
+}
+
+function bossModal(){
+  return `${mhead('บอส','👹')}<div class="mbody">
+    <div class="section">
+      <h3>👹 Boss ทั้งหมด (6)</h3>
+      ${Object.entries(BOSSES).map(([mid,b])=>{
+        const isCur = G.player.currentMap === mid;
+        return `<div class="row" style="padding:8px;background:rgba(0,0,0,.3);margin-bottom:6px;border-left:3px solid ${isCur?'var(--hp)':'var(--line)'};">
+          <span style="font-size:24px;">${b.icon}</span>
+          <span class="l" style="flex:1;"><div style="font-weight:900;">${b.name}</div><div style="font-size:9px;color:var(--mute);">HP ${formatNum(b.hp)} · ATK ${b.atk}</div></span>
+          <button class="buyBtn" style="font-size:9px;padding:5px 10px;${isCur?'':'opacity:.4;'}" onclick="${isCur?`trySpawnBoss()`:''}">${isCur?'เรียก':'ไปแมพ'}</button>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>`;
+}
+
+function dailyModal(){
+  const d = G.player.daily || {day:1, streak:0, pending:true};
+  return `${mhead('รางวัลเข้าวัน','🎁')}<div class="mbody">
+    <div class="section" style="text-align:center;background:linear-gradient(135deg,rgba(255,107,53,.15),rgba(255,209,102,.05));">
+      <div style="font-size:48px;">🎁</div>
+      <div style="font-size:14px;font-weight:900;">วันที่ ${d.day} · สเตรค ${d.streak}</div>
+    </div>
+    <div class="section">
+      <h3>📅 รางวัล 7 วัน</h3>
+      <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">
+        ${DAILY_REWARDS.map((r,i)=>{
+          const isCur = (i+1)===d.day;
+          const isPast = (i+1)<d.day;
+          return `<div style="padding:6px 2px;background:${isCur?'linear-gradient(135deg,var(--gold),var(--acc2))':(isPast?'rgba(0,255,136,.15)':'rgba(0,0,0,.3)')};border:2px solid ${isCur?'var(--gold)':(isPast?'var(--good)':'var(--line)')};text-align:center;color:${isCur?'#000':(isPast?'var(--good)':'var(--txt)')};">
+            <div style="font-size:8px;font-weight:900;">D${r.day}</div>
+            <div style="font-size:18px;margin:3px 0;">${r.icon}</div>
+            <div style="font-size:7px;font-weight:700;">${r.gold?r.gold+'💰':''} ${r.gems?r.gems+'💎':''}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+    ${d.pending ? '<button class="buyBtn" onclick="claimDaily()">▸ รับรางวัล</button>' : '<div style="text-align:center;padding:10px;color:var(--mute);">✅ รับแล้ว · กลับมาพรุ่งนี้</div>'}
+  </div>`;
+}
+
+function achvModal(){
+  const claimed = G.player.achievementsClaimed || [];
+  return `${mhead('ความสำเร็จ','🏆')}<div class="mbody">
+    <div class="section">
+      <h3>🏆 ${(G.player.achievements||[]).length} / ${ACHIEVEMENTS.length}</h3>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;">
+        ${ACHIEVEMENTS.map(a=>{
+          const unlocked = (G.player.achievements||[]).includes(a.id);
+          const isClaimed = claimed.includes(a.id);
+          return `<div onclick="${unlocked&&!isClaimed?`claimAchv('${a.id}')`:''}" style="padding:6px;background:${unlocked?'rgba(0,255,136,.08)':'rgba(0,0,0,.3)'};border:1px solid ${unlocked?'var(--good)':'var(--line)'};text-align:center;${unlocked&&!isClaimed?'cursor:pointer;':''}">
+            <div style="font-size:22px;${unlocked?'':'filter:grayscale(1) opacity(0.4);'}">${a.icon}</div>
+            <div style="font-size:8px;font-weight:800;margin-top:2px;color:${unlocked?'var(--good)':'var(--mute)'};">${a.name}</div>
+            <div style="font-size:7px;color:var(--mute);">${a.desc}</div>
+            ${isClaimed?'<div style="font-size:7px;color:var(--acc);margin-top:2px;">✅</div>':unlocked?'<div style="font-size:7px;color:var(--gold);">🎁</div>':''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>
+  </div>`;
+}
+window.claimAchv = function(id){
+  if(!G.player.achievementsClaimed) G.player.achievementsClaimed = [];
+  if(G.player.achievementsClaimed.includes(id)) return;
+  const a = ACHIEVEMENTS.find(x=>x.id===id);
+  if(!a || !a.reward) return;
+  if(a.reward.gold) G.player.gold += a.reward.gold;
+  if(a.reward.gems) G.player.gems += a.reward.gems;
+  G.player.achievementsClaimed.push(id);
+  showToast(`🎁 ${a.name}`);
+  openModal('achv');
+};
+
+function helpModal(){
+  return `${mhead('วิธีเล่น','❓')}<div class="mbody">
+    <div class="section">
+      <h3>🎮 การควบคุม</h3>
+      <div class="row"><span class="l">เดิน</span><span class="v">WASD / ลูกศร</span></div>
+      <div class="row"><span class="l">ใช้สกิล</span><span class="v">1-4 (หรือคลิกปุ่ม)</span></div>
+      <div class="row"><span class="l">หมุนกล้อง</span><span class="v">ลากเมาส์ / นิ้ว</span></div>
+      <div class="row"><span class="l">ซูม</span><span class="v">Scroll / Pinch</span></div>
+      <div class="row"><span class="l">ตี Auto</span><span class="v">AUTO ON</span></div>
+    </div>
+    <div class="section">
+      <h3>⚔️ เกมเพลย์</h3>
+      <p style="font-size:11px;line-height:1.6;color:var(--mute);">
+        • เดินสำรวจแผนที่ ฆ่ามอนสเตอร์เพื่อเก็บ EXP + Gold<br>
+        • วาร์ปผ่าน portal เพื่อไปแผนที่ใหม่ (ต้องเลเวลถึง)<br>
+        • ฆ่า 25 มอน → BOSS จะปรากฏ<br>
+        • ฆ่า BOSS ได้รางวัลมาก + rare equipment<br>
+        • เลื่อนอาชีพที่ Lv.30/60 เพื่อปลดล็อกสกิลใหม่<br>
+        • Login ทุกวันรับรางวัลสะสม
+      </p>
+    </div>
+    <div class="section">
+      <h3>🎨 เกี่ยวกับ 3D</h3>
+      <p style="font-size:10px;color:var(--mute);line-height:1.6;">
+        เกมนี้ใช้ <b style="color:var(--acc)">Babylon.js v${BABYLON.Engine.Version}</b> — Microsoft-backed 3D engine<br>
+        • <b>PBR Materials</b> — physically-based rendering<br>
+        • <b>Havok Physics</b> — engine built-in (ใช้ ArcRotateCamera)<br>
+        • <b>Shadow Map</b> — real-time PBR shadows<br>
+        • <b>Skybox + Fog</b> — atmospheric depth<br>
+        • <b>6 แผนที่</b> — each with unique lighting + theme<br>
+        • <b>3D Billboards</b> — emoji rendering<br>
+        • <b>ArcRotate Camera</b> — orbit + zoom + pan
+      </p>
+    </div>
+  </div>`;
+}
+
+function settingsModal(){
+  const s = G.player.settings || {volume:true,lang:'th'};
+  const playtime = formatTime(Date.now() - (G.player.startTime || Date.now()));
+  return `${mhead('ตั้งค่า','⚙️')}<div class="mbody">
+    <div class="section">
+      <h3>🔊 เสียง</h3>
+      <div class="row"><span class="l">เปิดเสียง</span><div class="toggle ${s.volume?'on':''}" onclick="toggleSetting('volume')"></div></div>
+    </div>
+    <div class="section">
+      <h3>📊 สถิติ</h3>
+      <div class="row"><span class="l">เวลาเล่น</span><span class="v">${playtime}</span></div>
+      <div class="row"><span class="l">ฆ่ามอน</span><span class="v">${G.totalKills}</span></div>
+      <div class="row"><span class="l">ฆ่าบอส</span><span class="v">${G.player.bossKills||0}</span></div>
+      <div class="row"><span class="l">ความสำเร็จ</span><span class="v good">${(G.player.achievements||[]).length}/${ACHIEVEMENTS.length}</span></div>
+    </div>
+    <div class="section">
+      <h3>ℹ️ เกี่ยวกับ</h3>
+      <div class="row"><span class="l">เวอร์ชัน</span><span class="v">v1.0 3D</span></div>
+      <div class="row"><span class="l">Engine</span><span class="v">Babylon.js</span></div>
+      <div class="row"><span class="l">GitHub</span><span class="v" style="font-size:9px;">lnwsj/SJ88-RPG-Idle-3D</span></div>
+    </div>
+  </div>`;
+}
+window.toggleSetting = function(k){
+  if(!G.player.settings) G.player.settings = {volume:true,lang:'th'};
+  G.player.settings[k] = !G.player.settings[k];
+  openModal('settings');
+};
+
+function formatTime(ms){
+  const s = Math.floor(ms/1000);
+  const h = Math.floor(s/3600);
+  const m = Math.floor((s%3600)/60);
+  if(h > 0) return `${h}ชม ${m}นาที`;
+  if(m > 0) return `${m}นาที`;
+  return s+'วิ';
+}
+
+function logout(){
+  save();
+  if(confirm('ออกจากเกม?')) location.reload();
+}
+
+/* =============================================================
+   INPUT
+   ============================================================= */
+window.addEventListener('keydown', e => {
+  keys[e.key] = true;
+  if(e.key === 'Escape') closeModal();
+  if(e.key === ' '){ e.preventDefault(); attack(); }
+  if(e.key >= '1' && e.key <= '4') useSkill(parseInt(e.key) - 1);
+});
+window.addEventListener('keyup', e => { keys[e.key] = false; });
+
+// virtual joystick
+let touchStart = null;
+canvas.addEventListener('touchstart', e => {
+  const t = e.touches[0];
+  touchStart = {x: t.clientX, y: t.clientY, sx: t.clientX, sy: t.clientY};
+});
+canvas.addEventListener('touchmove', e => {
+  if(!touchStart) return;
+  const t = e.touches[0];
+  const dx = t.clientX - touchStart.sx, dy = t.clientY - touchStart.sy;
+  const d = Math.hypot(dx, dy);
+  if(d < 5){ joyDir = null; return; }
+  joyDir = {x: dx/d, y: dy/d};
+});
+canvas.addEventListener('touchend', () => { joyDir = null; touchStart = null; });
+
+document.getElementById('autoBtn').addEventListener('click', function(){
+  G.player.auto = !G.player.auto;
+  this.classList.toggle('on', G.player.auto);
+});
+document.getElementById('lockBtn').addEventListener('click', function(){
+  G.player.lockTarget = !G.player.lockTarget;
+  this.classList.toggle('on', G.player.lockTarget);
+});
+
+/* =============================================================
+   SAVE / LOAD
+   ============================================================= */
+function save(){
+  if(player) G.player.pos = {x: player.position.x, z: player.position.z};
+  try{ localStorage.setItem(C.SAVE_KEY, JSON.stringify(G)); }catch(e){}
+}
+function load(){
+  try{
+    const raw = localStorage.getItem(C.SAVE_KEY);
+    if(raw){
+      const d = JSON.parse(raw);
+      G = {...defaultState(), ...d};
+    }
+  }catch(e){ console.warn('load failed', e); }
+}
+setInterval(save, 10000);
+window.addEventListener('beforeunload', save);
+
+/* =============================================================
+   INIT
+   ============================================================= */
+window.addEventListener('load', () => {
+  load();
+  document.getElementById('loadPct').textContent = 'Loading...';
+  
+  // Progress callback
+  let loaded = 0;
+  const totalSteps = 5;
+  function step(name){
+    loaded++;
+    document.getElementById('loadPct').textContent = `${Math.round(loaded/totalSteps*100)}% · ${name}`;
+  }
+  
+  step('Engine');
+  createScene();
+  step('Scene');
+  spawnMonsters(G.player.currentMap || 'town');
+  step('Monsters');
+  checkDailyLogin();
+  step('Daily');
+  step('Ready');
+  
+  setTimeout(() => {
+    document.getElementById('loading').style.display = 'none';
+    showToast('▸ SJ88 RPG Idle 3D · Babylon.js');
+  }, 800);
+});
+
+// expose for inline handlers
+window.useSkill = useSkill;
+window.trySpawnBoss = trySpawnBoss;
+window.openModal = openModal;
+window.closeModal = closeModal;
+window.logout = logout;
+window.save = save;
+</script>
+</body>
+</html>
