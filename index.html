@@ -47,6 +47,7 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 .skb:active{background:rgba(0,217,255,.3);transform:scale(.95);}
 .skb .sklMp{position:absolute;bottom:-10px;left:0;right:0;font-size:7px;text-align:center;color:var(--mute);font-weight:700;}
 .skb .sklKey{position:absolute;top:1px;right:3px;font-size:7px;color:var(--acc);font-weight:900;}
+.skb .sklIcon{font-size:24px;line-height:1;pointer-events:none;filter:drop-shadow(0 0 4px rgba(0,217,255,.5));}
 .skb .cd{position:absolute;inset:0;background:rgba(0,0,0,.7);display:none;align-items:center;justify-content:center;font-size:14px;font-weight:900;color:var(--gold);}
 .skb.noMana{filter:grayscale(.6) brightness(.5);}
 
@@ -178,10 +179,10 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
   
   <!-- SKILL BAR -->
   <div id="skillBar">
-    <div class="skb" onclick="useSkill(0)"><span class="sklKey">1</span><span class="sklMp"></span><span class="cd"></span></div>
-    <div class="skb" onclick="useSkill(1)"><span class="sklKey">2</span><span class="sklMp"></span><span class="cd"></span></div>
-    <div class="skb" onclick="useSkill(2)"><span class="sklKey">3</span><span class="sklMp"></span><span class="cd"></span></div>
-    <div class="skb" onclick="useSkill(3)"><span class="sklKey">4</span><span class="sklMp"></span><span class="cd"></span></div>
+    <div class="skb" onclick="useSkill(0)"><span class="sklKey">1</span><span class="sklIcon"></span><span class="sklMp"></span><span class="cd"></span></div>
+    <div class="skb" onclick="useSkill(1)"><span class="sklKey">2</span><span class="sklIcon"></span><span class="sklMp"></span><span class="cd"></span></div>
+    <div class="skb" onclick="useSkill(2)"><span class="sklKey">3</span><span class="sklIcon"></span><span class="sklMp"></span><span class="cd"></span></div>
+    <div class="skb" onclick="useSkill(3)"><span class="sklKey">4</span><span class="sklIcon"></span><span class="sklMp"></span><span class="cd"></span></div>
   </div>
   
   <!-- BOTTOM MENU -->
@@ -374,7 +375,7 @@ const defaultState = () => ({
     gold:0, gems:5, skillPoints:0,
     pos:{x:0, z:0}, currentMap:'town',
     inventory:[], achievements:[], achievementsClaimed:[],
-    skillCooldowns:{}, settings:{volume:true,lang:'th'},
+    skillCooldowns:{}, settings:{volume:true,lang:'th'}, auto:true,
     daily:{lastLogin:null, streak:0, day:0, pending:false},
     bossKills:0, bossProgress:0, lastBossMap:null, startTime:Date.now()
   },
@@ -1148,7 +1149,8 @@ function spawnHitParticles(x, z, count){
     const mat = new BABYLON.StandardMaterial('pm', scene);
     mat.emissiveColor = new BABYLON.Color3(1, 0.8, 0.3);
     sphere.material = mat;
-    const vx = (Math.random()-0.5)*3, vy = 1+Math.random()*2, vz = (Math.random()-0.5)*3;
+    const vx = (Math.random()-0.5)*3, vz = (Math.random()-0.5)*3;
+    let vy = 1+Math.random()*2;
     let life = 600;
     const startTime = Date.now();
     const obs = scene.onBeforeRenderObservable.add(() => {
@@ -1184,6 +1186,8 @@ function updateUI(){
     const sk = skills[i];
     if(!sk){ el.style.display = 'none'; return; }
     el.style.display = 'flex';
+    el.querySelector('.sklIcon').textContent = sk.icon;
+    el.title = `${sk.name} (${sk.mp}💧 ${sk.cd}s) — ${sk.desc||''}`;
     const cd = (p.skillCooldowns[sk.id]||0) - Date.now();
     const onCd = cd > 0;
     const noMp = p.mp < (sk.mp||0);
