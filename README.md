@@ -56,9 +56,14 @@ SJ88-RPG-Idle-3D/
 
 ## 🚀 Live URLs
 
-- **CodeHub**: https://codehub.sj88ai.com/sj88-rpg-idle-3d/
-- **VPS**: http://178.83.121.75:53300/
-- **GitHub**: https://github.com/lnwsj/SJ88-RPG-Idle-3D
+| Channel | URL |
+|---|---|
+| 🌟 **Production** | https://sj88rpg.sj88ai.com (HTTPS · Let's Encrypt · auto-renew) |
+| 📦 **CodeHub** | https://codehub.sj88ai.com/sj88-rpg-idle-3d/ |
+| 🖥️ **Dev VPS** | http://178.83.121.75:53300/ |
+| 📂 **GitHub** | https://github.com/lnwsj/SJ88-RPG-Idle-3D |
+
+> 👉 **Use `sj88rpg.sj88ai.com` as your primary URL** — main production deployment with SSL.
 
 ## 🎯 How to Play
 
