@@ -61,6 +61,12 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 
 /* ============ DAMAGE NUMBERS (overlay) ============ */
 #fxLayer{position:absolute;inset:0;pointer-events:none;z-index:20;}
+
+#joystick{position:absolute;left:24px;bottom:240px;width:120px;height:120px;z-index:22;display:none;touch-action:none;user-select:none;}
+#joystickBase{position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle,rgba(0,217,255,0.12) 0%,rgba(0,217,255,0.04) 60%,transparent 100%);border:2px solid rgba(0,217,255,0.25);box-shadow:0 0 12px rgba(0,217,255,0.15);}
+#joystickKnob{position:absolute;left:50%;top:50%;width:48px;height:48px;margin-left:-24px;margin-top:-24px;border-radius:50%;background:radial-gradient(circle at 30% 30%,rgba(0,217,255,0.7),rgba(0,217,255,0.3) 70%);border:2px solid rgba(0,217,255,0.7);box-shadow:0 0 12px rgba(0,217,255,0.5),inset 0 0 8px rgba(0,217,255,0.4);transition:transform 0.05s;}
+@media (hover:none) and (pointer:coarse){#joystick{display:block;}}
+@media (max-width:900px){#joystick{display:block;}}
 .fdmg{position:absolute;font-size:18px;font-weight:900;color:#fff;text-shadow:0 1px 3px #000,0 0 10px var(--hp);pointer-events:none;animation:fdAnim 1.2s ease-out forwards;letter-spacing:.5px;transform:translate(-50%,-50%);}
 .fdmg.crit{color:var(--gold);font-size:24px;text-shadow:0 0 12px var(--gold),0 0 24px rgba(255,209,102,.6);animation:fdCrit 1.4s ease-out;}
 .fdmg.gain{color:var(--good);}
@@ -130,6 +136,10 @@ button{font-family:inherit;cursor:pointer;border:none;background:none;color:inhe
 <div id="app">
   <canvas id="renderCanvas"></canvas>
   <div id="fxLayer"></div>
+  <div id="joystick">
+    <div id="joystickBase"></div>
+    <div id="joystickKnob"></div>
+  </div>
   
   <!-- TOP BAR -->
   <div id="topBar">
@@ -715,6 +725,10 @@ function createPlayer(){
   playerSprite.billboardMode = BABYLON.Mesh.BILLBOARDMODE_ALL;
   
   player = body;
+  player.head = head;
+  player.sword = sword;
+  player._vel = {x:0, z:0};
+  player._anim = {t:0, walkPhase:0, baseY:0.8};
   // place at saved pos or center
   body.position = new BABYLON.Vector3(G.player.pos.x, 0.8, G.player.pos.z);
 }
@@ -763,27 +777,99 @@ function update(){
 }
 
 function updatePlayer(dt){
-  const speed = (5 + G.player.agi * 0.1) * (dt/1000);
+  // === Smooth velocity-based movement with acceleration/deceleration ===
+  const maxSpeed = 6 + G.player.agi * 0.12;  // pixels/sec
+  const accel = maxSpeed * 4;                // reach max in 0.25s
+  const decel = maxSpeed * 6;                // stop in ~0.17s
+  const dtSec = dt / 1000;
+
+  // Read input
   let dx = 0, dz = 0;
   if(keys['w']||keys['ArrowUp']) dz -= 1;
   if(keys['s']||keys['ArrowDown']) dz += 1;
   if(keys['a']||keys['ArrowLeft']) dx -= 1;
   if(keys['d']||keys['ArrowRight']) dx += 1;
   if(joyDir){ dx = joyDir.x; dz = joyDir.y; }
-  const len = Math.hypot(dx, dz);
-  if(len > 0 && player){
-    dx /= len; dz /= len;
-    player.position.x += dx * speed;
-    player.position.z += dz * speed;
-    // clamp
-    player.position.x = Math.max(-38, Math.min(38, player.position.x));
-    player.position.z = Math.max(-38, Math.min(38, player.position.z));
-    // face direction
-    const targetAngle = Math.atan2(dx, dz);
-    player.rotation.y = BABYLON.Scalar.Lerp(player.rotation.y, targetAngle, 0.2);
-    G.player.pos.x = player.position.x;
-    G.player.pos.z = player.position.z;
+  const inLen = Math.hypot(dx, dz);
+  if(inLen > 0){ dx /= inLen; dz /= inLen; }
+
+  // Target velocity (input direction × maxSpeed), 0 if no input
+  const targetVx = inLen > 0 ? dx * maxSpeed : 0;
+  const targetVz = inLen > 0 ? dz * maxSpeed : 0;
+
+  // Smooth velocity (lerp toward target — feels like inertia)
+  if(!player._vel) player._vel = {x:0, z:0};
+  const k = inLen > 0 ? Math.min(1, accel * dtSec / maxSpeed) : Math.min(1, decel * dtSec / maxSpeed);
+  player._vel.x += (targetVx - player._vel.x) * k;
+  player._vel.z += (targetVz - player._vel.z) * k;
+
+  // Apply velocity
+  player.position.x += player._vel.x * dtSec;
+  player.position.z += player._vel.z * dtSec;
+
+  // Clamp to map bounds
+  player.position.x = Math.max(-38, Math.min(38, player.position.x));
+  player.position.z = Math.max(-38, Math.min(38, player.position.z));
+
+  // Speed (for animation)
+  const curSpeed = Math.hypot(player._vel.x, player._vel.z);
+
+  // === Smooth rotation: face velocity direction ===
+  if(curSpeed > 0.3){
+    const targetAngle = Math.atan2(player._vel.x, player._vel.z);
+    // shortest-arc lerp
+    let cur = player.rotation.y;
+    let diff = targetAngle - cur;
+    while(diff > Math.PI) diff -= Math.PI*2;
+    while(diff < -Math.PI) diff += Math.PI*2;
+    player.rotation.y = cur + diff * Math.min(1, 12 * dtSec);
   }
+
+  // === Walk animation: bob up/down + arm sway ===
+  const isMoving = curSpeed > 0.5;
+  if(!player._anim) player._anim = {t:0, walkPhase:0, baseY:0.8};
+  player._anim.t += dtSec * (isMoving ? (4 + curSpeed) : 1.5);
+
+  // Vertical bob: only when moving
+  if(isMoving){
+    player._anim.walkPhase += dtSec * (8 + curSpeed * 0.5);
+    const bob = Math.abs(Math.sin(player._anim.walkPhase)) * 0.12;
+    player.position.y = player._anim.baseY + bob;
+  } else {
+    // Idle: gentle breathing
+    const breathe = Math.sin(player._anim.t * 1.8) * 0.03;
+    player.position.y = player._anim.baseY + breathe;
+    // gradually settle walkPhase so it doesn't snap
+    player._anim.walkPhase *= 0.9;
+  }
+
+  // === Sword arm swing: rotate sword based on walk phase ===
+  if(player.sword){
+    if(isMoving){
+      const swing = Math.sin(player._anim.walkPhase) * 0.3;
+      player.sword.rotation.z = swing;
+      player.sword.position.x = 0.4 + Math.sin(player._anim.walkPhase) * 0.05;
+    } else {
+      // idle: subtle sword hover
+      const hover = Math.sin(player._anim.t * 2) * 0.05;
+      player.sword.rotation.z = hover;
+      player.sword.position.x = 0.4;
+    }
+  }
+
+  // === Head bob: slight nod when moving ===
+  if(player.head){
+    if(isMoving){
+      const headBob = Math.sin(player._anim.walkPhase * 0.5) * 0.05;
+      player.head.position.y = 1.2 + headBob;
+    } else {
+      player.head.position.y = 1.2 + Math.sin(player._anim.t * 1.5) * 0.02;
+    }
+  }
+
+  // Save pos for save/load
+  G.player.pos.x = player.position.x;
+  G.player.pos.z = player.position.z;
 }
 
 function updateMonsters(dt){
@@ -1526,21 +1612,66 @@ window.addEventListener('keydown', e => {
 });
 window.addEventListener('keyup', e => { keys[e.key] = false; });
 
-// virtual joystick
-let touchStart = null;
-canvas.addEventListener('touchstart', e => {
-  const t = e.touches[0];
-  touchStart = {x: t.clientX, y: t.clientY, sx: t.clientX, sy: t.clientY};
-});
-canvas.addEventListener('touchmove', e => {
-  if(!touchStart) return;
-  const t = e.touches[0];
-  const dx = t.clientX - touchStart.sx, dy = t.clientY - touchStart.sy;
+// === Virtual joystick (visible UI for mobile) ===
+const joyEl = document.getElementById('joystick');
+const joyKnob = document.getElementById('joystickKnob');
+let joyTouch = null;
+const JOY_MAX = 36;  // max knob offset in px
+
+function setJoystick(dx, dy){
+  // Clamp to circle
   const d = Math.hypot(dx, dy);
-  if(d < 5){ joyDir = null; return; }
-  joyDir = {x: dx/d, y: dy/d};
+  if(d > JOY_MAX){
+    dx = dx / d * JOY_MAX;
+    dy = dy / d * JOY_MAX;
+  }
+  joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+  if(d < 6){ joyDir = null; return; }
+  joyDir = {x: dx / JOY_MAX, y: dy / JOY_MAX};
+}
+
+function handleJoyStart(t){
+  const rect = joyEl.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  joyTouch = {id: t.identifier, cx, cy};
+  setJoystick(t.clientX - cx, t.clientY - cy);
+}
+function handleJoyMove(t){
+  if(!joyTouch || t.identifier !== joyTouch.id) return;
+  setJoystick(t.clientX - joyTouch.cx, t.clientY - joyTouch.cy);
+}
+function handleJoyEnd(t){
+  if(!joyTouch || t.identifier !== joyTouch.id) return;
+  joyTouch = null;
+  joyDir = null;
+  joyKnob.style.transform = 'translate(0, 0)';
+}
+
+joyEl.addEventListener('touchstart', e => { e.preventDefault(); for(const t of e.changedTouches) handleJoyStart(t); }, {passive:false});
+joyEl.addEventListener('touchmove',  e => { e.preventDefault(); for(const t of e.changedTouches) handleJoyMove(t); }, {passive:false});
+joyEl.addEventListener('touchend',   e => { e.preventDefault(); for(const t of e.changedTouches) handleJoyEnd(t); }, {passive:false});
+joyEl.addEventListener('touchcancel',e => { e.preventDefault(); for(const t of e.changedTouches) handleJoyEnd(t); }, {passive:false});
+
+// Mouse fallback for desktop testing
+let mouseJoy = null;
+joyEl.addEventListener('mousedown', e => {
+  const rect = joyEl.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  mouseJoy = {cx, cy};
+  setJoystick(e.clientX - cx, e.clientY - cy);
 });
-canvas.addEventListener('touchend', () => { joyDir = null; touchStart = null; });
+window.addEventListener('mousemove', e => {
+  if(!mouseJoy) return;
+  setJoystick(e.clientX - mouseJoy.cx, e.clientY - mouseJoy.cy);
+});
+window.addEventListener('mouseup', () => {
+  if(!mouseJoy) return;
+  mouseJoy = null;
+  joyDir = null;
+  joyKnob.style.transform = 'translate(0, 0)';
+});
 
 document.getElementById('autoBtn').addEventListener('click', function(){
   G.player.auto = !G.player.auto;
